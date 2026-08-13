@@ -20,7 +20,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.5.0"
+VERSION = "2.5.1"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -113,6 +113,8 @@ class BellCat(tk.Tk):
         self.trail_animation = None
         self.preview_channel = None
         self.preview_stop_job = None
+        self.stage_alarm_channel = None
+        self.awaiting_stage_advance = False
         self.logo_click_count = 0
         self.logo_animation_jobs = []
         self.logo_particles = []
@@ -342,6 +344,9 @@ class BellCat(tk.Tk):
         self.canvas.create_text(205, 170, text=self.stage["name"], fill=self.stage["color"], font=("TkDefaultFont", 15, "bold"))
         self.canvas.create_text(205, 215, text=f"{self.seconds_left//60:02d}:{self.seconds_left%60:02d}", fill=self.fg, font=("TkDefaultFont", 42, "bold"))
         self.canvas.create_text(205, 260, text=self.lang["hint"], fill="#888888", font=("TkDefaultFont", 10))
+        if self.awaiting_stage_advance:
+            next_stage = self.task["stages"][(self.stage_index + 1) % len(self.task["stages"])]
+            self.canvas.create_text(205, 292, text=f"🐱 → {next_stage['name']}", fill="#A57C35", font=("TkDefaultFont", 11, "bold"))
 
     def ring_fraction(self, x, y):
         return ((math.atan2(y - 205, x - 205) + math.pi / 2) % (2 * math.pi)) / (2 * math.pi)
@@ -358,6 +363,7 @@ class BellCat(tk.Tk):
             self.ring_drag(event)
             return
         if 138 <= math.hypot(event.x - 205, event.y - 205) <= 194:
+            self.stop_stage_alarm(); self.awaiting_stage_advance = False
             target = fraction * current_total
             cursor = 0
             for index, stage in enumerate(self.task["stages"]):
@@ -371,6 +377,7 @@ class BellCat(tk.Tk):
 
     def ring_drag(self, event):
         if not self.dragging_ring_handle: return
+        self.stop_stage_alarm(); self.awaiting_stage_advance = False
         fraction = self.ring_fraction(event.x, event.y)
         now = time.monotonic()
         if not self.ring_trail or now - self.ring_trail[-1][1] > .018 or abs(fraction - self.ring_trail[-1][0]) > .004:
@@ -428,6 +435,7 @@ class BellCat(tk.Tk):
             self.running = False
             return
         if getattr(self, "cat_is_being_petted", False): return
+        if self.awaiting_stage_advance: self.stop_stage_alarm()
         self.cat_is_being_petted = True
         self.start_button.configure(text="☝", compound="top", relief="sunken", padx=8, pady=8)
         self.after(150, lambda: self.start_button.configure(relief="flat", padx=2, pady=2) if self.start_button.winfo_exists() else None)
@@ -438,20 +446,29 @@ class BellCat(tk.Tk):
         if hasattr(self, "start_button") and self.start_button.winfo_exists():
             self.start_button.configure(text="", compound="none", relief="flat", padx=4, pady=4)
         self.cat_is_being_petted = False
+        if self.awaiting_stage_advance:
+            self.awaiting_stage_advance = False
+            self.stage_index = (self.stage_index + 1) % len(self.task["stages"])
+            if self.stage_index == 0:
+                self.data["completed"] += 1
+                save_config(self.data)
+            self.seconds_left = self.stage["minutes"] * 60
         self.running = True
         self.last_tick = time.monotonic()
 
     def reset(self):
-        self.running = False; self.stage_index = 0; self.seconds_left = self.stage["minutes"] * 60; self.draw_ring()
+        self.running = False; self.stop_stage_alarm(); self.awaiting_stage_advance = False
+        self.stage_index = 0; self.seconds_left = self.stage["minutes"] * 60; self.draw_ring()
 
     def tick(self):
         if self.running and time.monotonic() - self.last_tick >= 1:
             ticks = int(time.monotonic() - self.last_tick); self.last_tick += ticks
             self.seconds_left -= ticks
             if self.seconds_left <= 0:
-                self.bell(); self.stage_index = (self.stage_index + 1) % len(self.task["stages"])
-                if self.stage_index == 0: self.data["completed"] += 1; save_config(self.data)
-                self.seconds_left = self.stage["minutes"] * 60
+                self.seconds_left = 0
+                self.running = False
+                self.awaiting_stage_advance = True
+                self.play_stage_alarm()
             self.draw_ring()
         self.after(200, self.tick)
 
@@ -555,6 +572,19 @@ class BellCat(tk.Tk):
         if not self.audio_ready: return
         try: pygame.mixer.Sound(str(CONFIG_DIR / f'end_{self.data.get("end_sound", "Bell").lower()}.wav')).play()
         except Exception: pass
+
+    def play_stage_alarm(self):
+        self.stop_end_sound_preview()
+        self.stop_stage_alarm()
+        if not self.audio_ready: return
+        try:
+            sound = pygame.mixer.Sound(str(CONFIG_DIR / f'end_{self.data.get("end_sound", "Bell").lower()}.wav'))
+            self.stage_alarm_channel = sound.play(loops=-1)
+        except Exception: self.stage_alarm_channel = None
+
+    def stop_stage_alarm(self):
+        if self.stage_alarm_channel is not None: self.stage_alarm_channel.stop()
+        self.stage_alarm_channel = None
 
     def toggle_end_sound_preview(self):
         if self.preview_channel is not None and self.preview_channel.get_busy():

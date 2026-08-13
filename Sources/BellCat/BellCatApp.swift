@@ -165,9 +165,11 @@ final class FocusTimer: ObservableObject {
     @Published var soundChoice = "Glass"
     @Published var customSoundURL: URL?
     @Published private(set) var isPreviewingSound = false
+    @Published private(set) var isAwaitingStageAdvance = false
 
     private var ticker: Timer?
     private var previewSound: NSSound?
+    private var stageAlarmSound: NSSound?
     private var previewStopWorkItem: DispatchWorkItem?
     private let routinesKey = "bellcat.routines.v2"
     private let selectedKey = "bellcat.selectedRoutine.v2"
@@ -243,10 +245,16 @@ final class FocusTimer: ObservableObject {
         return before + max(0, currentStage.minutes * 60 - secondsLeft)
     }
     var sequenceProgress: Double { min(1, max(0, Double(elapsedSeconds) / Double(totalSeconds))) }
+    var nextStage: TaskStage {
+        currentRoutine.stages[(currentStageIndex + 1) % currentRoutine.stages.count]
+    }
 
-    func startPause() { isRunning ? pause() : start() }
+    func startPause() {
+        if isAwaitingStageAdvance { acknowledgeStageCompletion(); return }
+        isRunning ? pause() : start()
+    }
     func start() {
-        guard !isRunning else { return }
+        guard !isRunning, !isAwaitingStageAdvance else { return }
         isRunning = true
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.tick() }
@@ -259,6 +267,7 @@ final class FocusTimer: ObservableObject {
     }
     func reset() {
         pause()
+        cancelStageCompletion()
         currentStageIndex = 0
         secondsLeft = currentStage.minutes * 60
     }
@@ -280,6 +289,8 @@ final class FocusTimer: ObservableObject {
     }
     func selectStage(_ index: Int) {
         guard currentRoutine.stages.indices.contains(index) else { return }
+        pause()
+        cancelStageCompletion()
         currentStageIndex = index
         secondsLeft = currentStage.minutes * 60
     }
@@ -290,6 +301,7 @@ final class FocusTimer: ObservableObject {
         saveRoutines()
     }
     func seek(to fraction: Double) {
+        cancelStageCompletion()
         let target = min(totalSeconds - 1, max(0, Int(Double(totalSeconds) * fraction)))
         var cursor = 0
         for (index, stage) in currentRoutine.stages.enumerated() {
@@ -307,25 +319,54 @@ final class FocusTimer: ObservableObject {
         if secondsLeft > 1 { secondsLeft -= 1 } else { finishStage() }
     }
     private func finishStage() {
-        playAlarm()
+        pause()
+        secondsLeft = 0
+        isAwaitingStageAdvance = true
+        playStageAlarm()
         let language = AppLanguage.saved
         let finished = currentStage.title(language)
         let nextIndex = (currentStageIndex + 1) % currentRoutine.stages.count
-        if nextIndex == 0 { completedRounds += 1 }
-        currentStageIndex = nextIndex
-        secondsLeft = currentStage.minutes * 60
+        let nextStage = currentRoutine.stages[nextIndex]
 
         let content = UNMutableNotificationContent()
         content.title = finished
-        content.body = L10n.text(.readyToStart, language, currentStage.title(language))
+        content.body = L10n.text(.readyToStart, language, nextStage.title(language))
         content.sound = .default
         UNUserNotificationCenter.current().add(
             UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         )
     }
-    private func playAlarm() {
+
+    func acknowledgeStageCompletion() {
+        guard isAwaitingStageAdvance else { return }
+        stopStageAlarm()
+        isAwaitingStageAdvance = false
+        let nextIndex = (currentStageIndex + 1) % currentRoutine.stages.count
+        if nextIndex == 0 { completedRounds += 1 }
+        currentStageIndex = nextIndex
+        secondsLeft = currentStage.minutes * 60
+        start()
+    }
+
+    func silenceStageAlarm() { stopStageAlarm() }
+
+    private func cancelStageCompletion() {
+        stopStageAlarm()
+        isAwaitingStageAdvance = false
+    }
+
+    private func playStageAlarm() {
         stopSoundPreview()
-        configuredEndSound()?.play()
+        stopStageAlarm()
+        guard let sound = configuredEndSound() else { return }
+        sound.loops = true
+        stageAlarmSound = sound
+        sound.play()
+    }
+
+    private func stopStageAlarm() {
+        stageAlarmSound?.stop()
+        stageAlarmSound = nil
     }
     func toggleSoundPreview() {
         if isPreviewingSound {
@@ -336,6 +377,7 @@ final class FocusTimer: ObservableObject {
         previewStopWorkItem?.cancel()
         previewSound = sound
         isPreviewingSound = true
+        sound.loops = true
         sound.play()
         let stopWork = DispatchWorkItem { [weak self] in
             Task { @MainActor in self?.stopSoundPreview() }
@@ -354,7 +396,8 @@ final class FocusTimer: ObservableObject {
         if soundChoice == "custom", let url = customSoundURL {
             return NSSound(contentsOf: url, byReference: true)
         }
-        return NSSound(named: NSSound.Name(soundChoice))
+        let systemURL = URL(fileURLWithPath: "/System/Library/Sounds/\(soundChoice).aiff")
+        return NSSound(contentsOf: systemURL, byReference: false) ?? NSSound(named: NSSound.Name(soundChoice))
     }
     private func saveRoutines() {
         if let data = try? JSONEncoder().encode(routines) {
@@ -801,6 +844,13 @@ struct TimerDashboard: View {
                 PettableCatTimerButton()
             }
 
+            if timer.isAwaitingStageAdvance {
+                Text("🐱  \(L10n.text(.readyToStart, language.selected, timer.nextStage.title(language.selected)))")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(Color(hex: "8A6B32"))
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            }
+
             HStack(spacing: 10) {
                 Button(action: ambience.toggle) {
                     Image(systemName: ambience.isPlaying ? "pause.fill" : "play.fill")
@@ -867,6 +917,12 @@ private struct PettableCatTimerButton: View {
                         .padding(6).background(Color.black.opacity(0.72), in: Circle())
                         .offset(x: 25, y: 25)
                 }
+                if timer.isAwaitingStageAdvance && !isPetting {
+                    Image(systemName: "bell.fill")
+                        .font(.caption2.bold()).foregroundStyle(.white)
+                        .padding(6).background(Color(hex: "8A6B32").opacity(0.92), in: Circle())
+                        .offset(x: 25, y: 25)
+                }
                 if isPetting {
                     Image(systemName: "hand.point.down.fill")
                         .font(.system(size: 24, weight: .semibold))
@@ -892,6 +948,8 @@ private struct PettableCatTimerButton: View {
     private func toggleTimer() {
         if timer.isRunning { timer.pause(); return }
         guard !isPetting else { return }
+        let shouldAdvance = timer.isAwaitingStageAdvance
+        if shouldAdvance { timer.silenceStageAlarm() }
         isPetting = true
         handOffset = -48
         withAnimation(.easeInOut(duration: 0.22)) {
@@ -912,7 +970,7 @@ private struct PettableCatTimerButton: View {
                 catRotation = 0
                 isPetting = false
             }
-            timer.start()
+            if shouldAdvance { timer.acknowledgeStageCompletion() } else { timer.start() }
         }
     }
 }
