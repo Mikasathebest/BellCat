@@ -249,7 +249,7 @@ final class FocusTimer: ObservableObject {
         guard !isRunning else { return }
         isRunning = true
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.tick() }
+            Task { @MainActor [weak self] in self?.tick() }
         }
     }
     func pause() {
@@ -1074,7 +1074,7 @@ struct InteractiveRoutineRing: View {
         let dy = point.y - size.height / 2
         var angle = atan2(dy, dx) + .pi / 2
         if angle < 0 { angle += 2 * .pi }
-        return angle / (2 * .pi)
+        return angle / (2 * Double.pi)
     }
 
     private func segmentBounds(_ index: Int) -> (Double, Double) {
