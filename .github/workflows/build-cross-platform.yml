@@ -31,7 +31,7 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y python3-tk libnotify-bin
       - name: Build BellCat
-        run: pyinstaller --onefile --windowed --name BellCat CrossPlatform/bellcat.py
+        run: pyinstaller --onefile --windowed --name BellCat --icon AppResources/BellCat.ico CrossPlatform/bellcat.py
       - name: Package Windows
         if: runner.os == 'Windows'
         shell: pwsh

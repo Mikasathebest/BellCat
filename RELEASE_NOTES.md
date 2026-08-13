@@ -1,4 +1,4 @@
-# BellCat 2.0.0
+# BellCat 2.1.0
 
 BellCat 是一个原生 macOS 多阶段专注计时器和日程提醒应用。
 
@@ -12,10 +12,13 @@ BellCat 是一个原生 macOS 多阶段专注计时器和日程提醒应用。
 - 深色、浅色及跟随系统外观
 - 自定义背景图片与透明度
 - 全新起司猫闹钟应用图标
+- 美短银灰经典虎斑与深灰金属闹钟融合的新图标
+- 高级黑白灰、石墨色和星光色视觉设计
+- 座右铭移动到“＋”下方，优先显示当前界面语言并保留英文原文
 
 ## 安装
 
-macOS 用户可以下载 `BellCat-2.0.0-macOS-arm64.dmg`，打开后将 BellCat 拖到 Applications；也可以下载 ZIP 版本。Windows 用户下载 `BellCat-Windows-x64.zip`，Linux 用户下载 `BellCat-Linux-x64.tar.gz`。
+macOS 用户可以下载 `BellCat-2.1.0-macOS-arm64.dmg`，打开后将 BellCat 拖到 Applications；也可以下载 ZIP 版本。Windows 用户下载 `BellCat-Windows-x64.zip`，Linux 用户下载 `BellCat-Linux-x64.tar.gz`。
 
 当前构建为 Apple Silicon（M1/M2/M3/M4 及后续）版本，最低支持 macOS 13。
 

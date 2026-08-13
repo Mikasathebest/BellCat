@@ -18,9 +18,9 @@
 
 ## 运行
 
-从 [Releases](../../releases) 下载 `BellCat-2.0.0-macOS-arm64.zip`，解压后将 `BellCat.app` 拖入“应用程序”。当前发行包适用于 Apple Silicon，最低支持 macOS 13。
+从 [Releases](../../releases) 下载 `BellCat-2.1.0-macOS-arm64.zip`，解压后将 `BellCat.app` 拖入“应用程序”。当前发行包适用于 Apple Silicon，最低支持 macOS 13。
 
-也可以下载 `BellCat-2.0.0-macOS-arm64.dmg`，打开安装盘后将 BellCat 拖到 Applications。Windows 和 Linux 构建由 GitHub Actions 在相应平台上生成，并附加到 Release。
+也可以下载 `BellCat-2.1.0-macOS-arm64.dmg`，打开安装盘后将 BellCat 拖到 Applications。Windows 和 Linux 构建由 GitHub Actions 在相应平台上生成，并附加到 Release。
 
 > 当前发行包采用临时签名，尚未使用 Apple Developer ID 公证。如果首次打开被 macOS 阻止，请在 Finder 中右键应用并选择“打开”。
 

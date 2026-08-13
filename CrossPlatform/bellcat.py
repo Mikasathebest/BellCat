@@ -14,7 +14,7 @@ from pathlib import Path
 from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 
 APP_NAME = "BellCat"
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 
@@ -29,18 +29,18 @@ LANGUAGES = {
 }
 
 QUOTES = [
-    ("Our doubts are traitors, and make us lose the good we oft might win.", "Shakespeare"),
-    ("Never give in—never, never, never, never.", "Winston Churchill"),
-    ("When you have eliminated the impossible, whatever remains must be the truth.", "Sherlock Holmes"),
-    ("All for one, one for all.", "The Three Musketeers"),
-    ("Wait and hope.", "The Count of Monte Cristo"),
+    {"en": "Our doubts are traitors, and make us lose the good we oft might win.", "中文": "我们的疑虑是叛徒，常使我们失去本可赢得的美好。", "日本語": "疑いは裏切り者。手にできたはずの幸運を失わせる。", "Español": "Nuestras dudas son traidoras y nos hacen perder el bien que podríamos ganar.", "Français": "Nos doutes sont des traîtres et nous font perdre le bien que nous pourrions gagner.", "العربية": "شكوكنا خائنة، فهي تجعلنا نفقد الخير الذي كان بوسعنا أن نناله.", "한국어": "의심은 배신자라서, 얻을 수 있었던 좋은 것을 잃게 한다.", "source": "Shakespeare · Measure for Measure"},
+    {"en": "Never give in—never, never, never, never.", "中文": "永不屈服——永远、永远、永远、永远不要。", "日本語": "決して屈するな。決して、決して、決して、決して。", "Español": "Nunca cedas; nunca, nunca, nunca, nunca.", "Français": "Ne cédez jamais — jamais, jamais, jamais, jamais.", "العربية": "لا تستسلم أبداً—أبداً، أبداً، أبداً، أبداً.", "한국어": "절대 굴복하지 마라. 절대, 절대, 절대, 절대로.", "source": "Winston Churchill"},
+    {"en": "When you have eliminated the impossible, whatever remains must be the truth.", "中文": "排除一切不可能之后，剩下的无论多么不可思议，都必是真相。", "日本語": "不可能なものを除けば、残ったものが真実である。", "Español": "Cuando has eliminado lo imposible, lo que queda debe ser la verdad.", "Français": "Lorsque vous avez éliminé l’impossible, ce qui reste doit être la vérité.", "العربية": "حين تستبعد المستحيل، فلا بد أن يكون ما تبقّى هو الحقيقة.", "한국어": "불가능한 것을 제거하고 나면, 남은 것이 진실이다.", "source": "Sherlock Holmes · The Sign of Four"},
+    {"en": "All for one, one for all.", "中文": "人人为我，我为人人。", "日本語": "一人は皆のために、皆は一人のために。", "Español": "Todos para uno y uno para todos.", "Français": "Tous pour un, un pour tous.", "العربية": "الكل للواحد، والواحد للكل.", "한국어": "모두는 하나를 위해, 하나는 모두를 위해.", "source": "The Three Musketeers"},
+    {"en": "Wait and hope.", "中文": "等待，并心怀希望。", "日本語": "待て、しかして希望せよ。", "Español": "Esperar y confiar.", "Français": "Attendre et espérer.", "العربية": "انتظر وكن على أمل.", "한국어": "기다려라, 그리고 희망을 가져라.", "source": "The Count of Monte Cristo"},
 ]
 
 DEFAULT = {
     "language": "中文", "theme": "light", "completed": 0,
     "tasks": [{"name": "Focus", "stages": [
-        {"name": "Work", "minutes": 25, "color": "#F3A83B"},
-        {"name": "Break", "minutes": 5, "color": "#58BFA8"}]}],
+        {"name": "Work", "minutes": 25, "color": "#4B4D51"},
+        {"name": "Break", "minutes": 5, "color": "#A7A9AD"}]}],
     "selected_task": 0, "reminders": []
 }
 
@@ -81,9 +81,9 @@ class BellCat(tk.Tk):
     def configure_ui(self):
         for child in self.winfo_children(): child.destroy()
         dark = self.data["theme"] == "dark"
-        self.bg = "#211B18" if dark else "#FFF9F0"
-        self.fg = "#F7EBDD" if dark else "#3D2A20"
-        self.card = "#332923" if dark else "#FFFFFF"
+        self.bg = "#202124" if dark else "#F2F1EE"
+        self.fg = "#F1F1EF" if dark else "#292A2D"
+        self.card = "#303135" if dark else "#E1E1DF"
         self.configure(bg=self.bg)
         style = ttk.Style(self)
         style.theme_use("clam")
@@ -92,10 +92,15 @@ class BellCat(tk.Tk):
         style.configure("TButton", padding=8)
 
         top = ttk.Frame(self); top.pack(fill="x", padx=22, pady=18)
-        ttk.Button(top, text="＋", width=3, command=self.new_menu).pack(side="left")
-        quote, author = QUOTES[int(time.time()) % len(QUOTES)]
-        ttk.Label(top, text=f'“{quote}”\n— {author}', font=("TkDefaultFont", 10)).pack(side="left", padx=14)
-        ttk.Label(top, text="BellCat", font=("TkDefaultFont", 20, "bold"), foreground="#E58632").pack(side="right")
+        left = ttk.Frame(top); left.pack(side="left", fill="x", expand=True)
+        tk.Button(left, text="＋", width=3, command=self.new_menu, bg="#3C3D40", fg="#F5F5F3", activebackground="#55575B", relief="flat", font=("TkDefaultFont", 13, "bold")).pack(anchor="w")
+        quote = QUOTES[int(time.time()) % len(QUOTES)]
+        localized = quote.get(self.data["language"], quote["en"])
+        quote_text = f'“{localized}”'
+        if self.data["language"] != "English": quote_text += f'\n“{quote["en"]}”'
+        quote_text += f'\n— {quote["source"]}'
+        ttk.Label(left, text=quote_text, font=("TkDefaultFont", 9), wraplength=430, justify="left").pack(anchor="w", pady=(8, 0))
+        ttk.Label(top, text="✦ BellCat", font=("TkDefaultFont", 20, "bold"), foreground=self.fg).pack(side="right")
         ttk.Button(top, text="⚙", width=3, command=self.settings_dialog).pack(side="right", padx=8)
 
         nav = ttk.Frame(self); nav.pack(pady=4)
@@ -190,7 +195,7 @@ class BellCat(tk.Tk):
         name = simpledialog.askstring(self.lang["task"], self.lang["title"], parent=self)
         if not name: return
         stages = []
-        colors = ["#F3A83B", "#58BFA8", "#ED6A5A", "#7A8EDB", "#B67AD9"]
+        colors = ["#4B4D51", "#A7A9AD", "#D1CEC6", "#6E7074", "#B9BBC0"]
         while True:
             stage_name = simpledialog.askstring(self.lang["add_stage"], self.lang["title"], parent=self)
             if not stage_name: break

@@ -99,14 +99,26 @@ final class FocusTimer: ObservableObject {
         let fallback = FocusRoutine(
             name: L10n.text(.focusWork),
             stages: [
-                TaskStage(kind: .work, minutes: 25, colorHex: "F3A83B"),
-                TaskStage(kind: .rest, minutes: 5, colorHex: "58BFA8")
+                TaskStage(kind: .work, minutes: 25, colorHex: "4B4D51"),
+                TaskStage(kind: .rest, minutes: 5, colorHex: "A7A9AD")
             ]
         )
         let loadedRoutines: [FocusRoutine]
         if let data = UserDefaults.standard.data(forKey: routinesKey),
            let saved = try? JSONDecoder().decode([FocusRoutine].self, from: data), !saved.isEmpty {
-            loadedRoutines = saved
+            let monochrome = ["4B4D51", "A7A9AD", "D1CEC6", "6E7074", "B9BBC0", "34363A"]
+            loadedRoutines = saved.map { routine in
+                var updated = routine
+                updated.stages = routine.stages.enumerated().map { index, stage in
+                    var updatedStage = stage
+                    let legacyColors = ["F3A83B", "58BFA8", "ED6A5A", "7A8EDB", "B67AD9", "5BA6D9"]
+                    if legacyColors.contains(stage.colorHex.uppercased()) {
+                        updatedStage.colorHex = monochrome[index % monochrome.count]
+                    }
+                    return updatedStage
+                }
+                return updated
+            }
         } else {
             loadedRoutines = [fallback]
         }
@@ -372,14 +384,40 @@ final class ThemeManager: ObservableObject {
 }
 
 struct QuoteItem {
-    let text: String
+    let english: String
     let source: String
+    let translations: [AppLanguage: String]
+
+    func localized(_ language: AppLanguage) -> String {
+        translations[language] ?? english
+    }
+
     static let all = [
-        QuoteItem(text: "Our doubts are traitors, and make us lose the good we oft might win.", source: "Shakespeare · Measure for Measure"),
-        QuoteItem(text: "Never give in—never, never, never, never.", source: "Winston Churchill"),
-        QuoteItem(text: "When you have eliminated the impossible, whatever remains must be the truth.", source: "Sherlock Holmes · The Sign of Four"),
-        QuoteItem(text: "All for one, one for all.", source: "Alexandre Dumas · The Three Musketeers"),
-        QuoteItem(text: "Wait and hope.", source: "Alexandre Dumas · The Count of Monte Cristo")
+        QuoteItem(
+            english: "Our doubts are traitors, and make us lose the good we oft might win.",
+            source: "Shakespeare · Measure for Measure",
+            translations: [.zhHans: "我们的疑虑是叛徒，常使我们因畏惧尝试而失去本可赢得的美好。", .ja: "疑いは裏切り者。試すことを恐れ、手にできたはずの幸運を失わせる。", .es: "Nuestras dudas son traidoras y nos hacen perder el bien que a menudo podríamos ganar.", .fr: "Nos doutes sont des traîtres et nous font perdre le bien que nous pourrions souvent gagner.", .ar: "شكوكنا خائنة، فهي تجعلنا نفقد الخير الذي كان بوسعنا أن نناله.", .ko: "의심은 배신자라서, 시도했다면 얻었을 좋은 것을 잃게 한다."]
+        ),
+        QuoteItem(
+            english: "Never give in—never, never, never, never.",
+            source: "Winston Churchill",
+            translations: [.zhHans: "永不屈服——永远、永远、永远、永远不要。", .ja: "決して屈するな。決して、決して、決して、決して。", .es: "Nunca cedas; nunca, nunca, nunca, nunca.", .fr: "Ne cédez jamais — jamais, jamais, jamais, jamais.", .ar: "لا تستسلم أبداً—أبداً، أبداً، أبداً، أبداً.", .ko: "절대 굴복하지 마라. 절대, 절대, 절대, 절대로."]
+        ),
+        QuoteItem(
+            english: "When you have eliminated the impossible, whatever remains must be the truth.",
+            source: "Sherlock Holmes · The Sign of Four",
+            translations: [.zhHans: "排除一切不可能之后，剩下的无论多么不可思议，都必是真相。", .ja: "不可能なものをすべて除けば、残ったものがどれほど奇妙でも真実である。", .es: "Cuando has eliminado lo imposible, lo que queda debe ser la verdad.", .fr: "Lorsque vous avez éliminé l’impossible, ce qui reste doit être la vérité.", .ar: "حين تستبعد المستحيل، فلا بد أن يكون ما تبقّى هو الحقيقة.", .ko: "불가능한 것을 모두 제거하고 나면, 남은 것이 무엇이든 진실이다."]
+        ),
+        QuoteItem(
+            english: "All for one, one for all.",
+            source: "Alexandre Dumas · The Three Musketeers",
+            translations: [.zhHans: "人人为我，我为人人。", .ja: "一人は皆のために、皆は一人のために。", .es: "Todos para uno y uno para todos.", .fr: "Tous pour un, un pour tous.", .ar: "الكل للواحد، والواحد للكل.", .ko: "모두는 하나를 위해, 하나는 모두를 위해."]
+        ),
+        QuoteItem(
+            english: "Wait and hope.",
+            source: "Alexandre Dumas · The Count of Monte Cristo",
+            translations: [.zhHans: "等待，并心怀希望。", .ja: "待て、しかして希望せよ。", .es: "Esperar y confiar.", .fr: "Attendre et espérer.", .ar: "انتظر وكن على أمل.", .ko: "기다려라, 그리고 희망을 가져라."]
+        )
     ]
 }
 
@@ -395,13 +433,17 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
+            LinearGradient(
+                colors: [Color(nsColor: .windowBackgroundColor), Color.primary.opacity(0.035), Color(hex: "D8D5CE").opacity(0.14)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ).ignoresSafeArea()
             if let url = theme.backgroundURL, let image = NSImage(contentsOf: url) {
                 Image(nsImage: image).resizable().scaledToFill().opacity(theme.backgroundOpacity).ignoresSafeArea().clipped()
                 Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
             }
 
-            VStack(spacing: 18) {
+            VStack(spacing: 14) {
                 header
                 Picker(L10n.text(.feature, language.selected), selection: $section) {
                     Text(L10n.text(.timer, language.selected)).tag(0)
@@ -411,34 +453,60 @@ struct RootView: View {
 
                 if section == 0 { TimerDashboard() } else { RemindersDashboard() }
             }
-            .padding(26)
+            .padding(24)
         }
         .sheet(isPresented: $showingAdd) { AddItemView(initialTab: section).frame(minWidth: 520) }
         .sheet(isPresented: $showingSettings) { SettingsView().frame(minWidth: 500) }
     }
 
     private var header: some View {
-        HStack(spacing: 14) {
-            Button { showingAdd = true } label: { Image(systemName: "plus").font(.title3.weight(.semibold)) }
-                .buttonStyle(.borderedProminent).controlSize(.large).help(L10n.text(.newItem, language.selected))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("“\(quote.text)”").font(.callout.weight(.medium)).lineLimit(2)
-                Text(L10n.text(.quoteBy, language.selected, quote.source)).font(.caption).foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 9) {
+                Button { showingAdd = true } label: {
+                    Image(systemName: "plus").font(.title3.weight(.semibold)).frame(width: 22, height: 22)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .tint(Color(hex: "3C3D40"))
+                .help(L10n.text(.newItem, language.selected))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("“\(quote.localized(language.selected))”")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(3)
+                    if language.selected != .en {
+                        Text("“\(quote.english)”")
+                            .font(.caption)
+                            .italic()
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    Text(L10n.text(.quoteBy, language.selected, quote.source))
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(Color(hex: "8C8E92"))
+                }
+                .frame(maxWidth: 390, alignment: .leading)
             }
             .onTapGesture { quote = QuoteItem.all.randomElement()! }
             Spacer(minLength: 12)
-            Text("BellCat").font(.title2.weight(.bold)).foregroundStyle(Color(hex: "E58632"))
-            Menu {
-                ForEach(AppLanguage.allCases) { option in
-                    Button {
-                        language.select(option)
-                        reminders.refreshNotificationLanguage()
-                    } label: { Text(option.nativeName + (option == language.selected ? " ✓" : "")) }
-                }
-            } label: { Label(language.selected.nativeName, systemImage: "globe") }
-                .menuStyle(.borderlessButton).fixedSize()
-            Button { showingSettings = true } label: { Image(systemName: "gearshape.fill") }
-                .buttonStyle(.borderless).font(.title3).help(L10n.text(.settings, language.selected))
+            HStack(spacing: 12) {
+                Label("BellCat", systemImage: "sparkles")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.primary)
+                Menu {
+                    ForEach(AppLanguage.allCases) { option in
+                        Button {
+                            language.select(option)
+                            reminders.refreshNotificationLanguage()
+                        } label: { Text(option.nativeName + (option == language.selected ? " ✓" : "")) }
+                    }
+                } label: { Label(language.selected.nativeName, systemImage: "globe") }
+                    .menuStyle(.borderlessButton).fixedSize()
+                Button { showingSettings = true } label: { Image(systemName: "gearshape.fill") }
+                    .buttonStyle(.borderless).font(.title3).foregroundStyle(.secondary)
+                    .help(L10n.text(.settings, language.selected))
+            }
         }
     }
 }
@@ -470,7 +538,7 @@ struct TimerDashboard: View {
                     Label(timer.isRunning ? L10n.text(.pause, language.selected) : L10n.text(.start, language.selected),
                           systemImage: timer.isRunning ? "pause.fill" : "play.fill").frame(minWidth: 105)
                 }
-                .buttonStyle(.borderedProminent).controlSize(.large).tint(Color(hex: "E58632"))
+                .buttonStyle(.borderedProminent).controlSize(.large).tint(Color(hex: "3C3D40"))
             }
             Text(L10n.text(.completedRounds, language.selected, timer.completedRounds))
                 .font(.caption).foregroundStyle(.secondary)
@@ -542,7 +610,7 @@ struct RemindersDashboard: View {
             if store.items.isEmpty {
                 VStack(spacing: 12) {
                     Spacer()
-                    Image(systemName: "bell.and.waves.left.and.right.fill").font(.system(size: 44)).foregroundStyle(Color(hex: "E58632"))
+                    Image(systemName: "bell.and.waves.left.and.right.fill").font(.system(size: 44)).foregroundStyle(Color(hex: "66686C"))
                     Text(L10n.text(.noReminders, language.selected)).font(.headline)
                     Text(L10n.text(.reminderExample, language.selected)).foregroundStyle(.secondary)
                     Spacer()
@@ -552,7 +620,7 @@ struct RemindersDashboard: View {
                     ForEach(store.items) { item in
                         HStack(spacing: 14) {
                             Image(systemName: item.style == .alarm ? "alarm.fill" : "bell.fill")
-                                .font(.title2).foregroundStyle(Color(hex: "E58632"))
+                                .font(.title2).foregroundStyle(Color(hex: "66686C"))
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(item.title).font(.headline)
                                 Text(L10n.date(item.eventDate, language.selected))
@@ -602,10 +670,10 @@ struct NewTaskView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var stages = [
-        StageDraft(kind: .work, name: "", minutes: 25, colorHex: "F3A83B"),
-        StageDraft(kind: .rest, name: "", minutes: 5, colorHex: "58BFA8")
+        StageDraft(kind: .work, name: "", minutes: 25, colorHex: "4B4D51"),
+        StageDraft(kind: .rest, name: "", minutes: 5, colorHex: "A7A9AD")
     ]
-    private let palette = ["F3A83B", "58BFA8", "ED6A5A", "7A8EDB", "B67AD9", "5BA6D9"]
+    private let palette = ["4B4D51", "A7A9AD", "D1CEC6", "6E7074", "B9BBC0", "34363A"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -642,7 +710,7 @@ struct NewTaskView: View {
                         }
                     )
                     timer.addRoutine(routine); dismiss()
-                }.buttonStyle(.borderedProminent).tint(Color(hex: "E58632"))
+                }.buttonStyle(.borderedProminent).tint(Color(hex: "3C3D40"))
             }
         }
     }
@@ -687,7 +755,7 @@ struct NewReminderView: View {
                     store.add(ReminderItem(title: title, eventDate: eventDate,
                                            advanceMinutes: advanceValue * unit.rawValue, style: style))
                     dismiss()
-                }.buttonStyle(.borderedProminent).tint(Color(hex: "E58632")).disabled(title.isEmpty || fireDate <= Date())
+                }.buttonStyle(.borderedProminent).tint(Color(hex: "3C3D40")).disabled(title.isEmpty || fireDate <= Date())
             }
         }
     }
@@ -732,7 +800,7 @@ struct SettingsView: View {
             HStack {
                 Button(L10n.text(.chooseAudio, language.selected)) { importingSound = true }
                 Spacer()
-                Button(L10n.text(.done, language.selected)) { dismiss() }.buttonStyle(.borderedProminent).tint(Color(hex: "E58632"))
+                Button(L10n.text(.done, language.selected)) { dismiss() }.buttonStyle(.borderedProminent).tint(Color(hex: "3C3D40"))
             }
         }
         .padding(28)
