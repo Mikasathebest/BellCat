@@ -139,8 +139,45 @@ struct TaskStage: Identifiable, Codable, Equatable {
     var id = UUID()
     var kind: StageKind
     var customName = ""
-    var minutes: Int
+    var durationSeconds: Int
     var colorHex: String
+
+    init(id: UUID = UUID(), kind: StageKind, customName: String = "", minutes: Int, colorHex: String) {
+        self.id = id
+        self.kind = kind
+        self.customName = customName
+        self.durationSeconds = max(1, minutes * 60)
+        self.colorHex = colorHex
+    }
+
+    init(id: UUID = UUID(), kind: StageKind, customName: String = "", durationSeconds: Int, colorHex: String) {
+        self.id = id
+        self.kind = kind
+        self.customName = customName
+        self.durationSeconds = max(1, durationSeconds)
+        self.colorHex = colorHex
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, kind, customName, durationSeconds, minutes, colorHex }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        kind = try values.decode(StageKind.self, forKey: .kind)
+        customName = try values.decodeIfPresent(String.self, forKey: .customName) ?? ""
+        colorHex = try values.decode(String.self, forKey: .colorHex)
+        durationSeconds = max(1, try values.decodeIfPresent(Int.self, forKey: .durationSeconds)
+                              ?? ((try values.decodeIfPresent(Int.self, forKey: .minutes) ?? 1) * 60))
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(kind, forKey: .kind)
+        try values.encode(customName, forKey: .customName)
+        try values.encode(durationSeconds, forKey: .durationSeconds)
+        try values.encode(colorHex, forKey: .colorHex)
+    }
 
     func title(_ language: AppLanguage) -> String {
         kind == .other && !customName.isEmpty ? customName : kind.title(language)
@@ -151,7 +188,7 @@ struct FocusRoutine: Identifiable, Codable, Equatable {
     var id = UUID()
     var name: String
     var stages: [TaskStage]
-    var totalMinutes: Int { stages.reduce(0) { $0 + $1.minutes } }
+    var totalSeconds: Int { stages.reduce(0) { $0 + $1.durationSeconds } }
 }
 
 @MainActor
@@ -211,7 +248,7 @@ final class FocusTimer: ObservableObject {
             selectedRoutineID = merged[0].id
         }
         let selected = merged.first(where: { $0.id == selectedRoutineID }) ?? merged[0]
-        secondsLeft = selected.stages[0].minutes * 60
+        secondsLeft = selected.stages[0].durationSeconds
         NotificationAccess.request()
     }
 
@@ -238,11 +275,16 @@ final class FocusTimer: ObservableObject {
         let stages = currentRoutine.stages
         return stages[min(currentStageIndex, max(0, stages.count - 1))]
     }
-    var remainingText: String { String(format: "%02d:%02d", secondsLeft / 60, secondsLeft % 60) }
-    var totalSeconds: Int { max(1, currentRoutine.totalMinutes * 60) }
+    var remainingText: String {
+        if secondsLeft >= 3600 {
+            return String(format: "%02d:%02d:%02d", secondsLeft / 3600, (secondsLeft / 60) % 60, secondsLeft % 60)
+        }
+        return String(format: "%02d:%02d", secondsLeft / 60, secondsLeft % 60)
+    }
+    var totalSeconds: Int { max(1, currentRoutine.totalSeconds) }
     var elapsedSeconds: Int {
-        let before = currentRoutine.stages.prefix(currentStageIndex).reduce(0) { $0 + $1.minutes * 60 }
-        return before + max(0, currentStage.minutes * 60 - secondsLeft)
+        let before = currentRoutine.stages.prefix(currentStageIndex).reduce(0) { $0 + $1.durationSeconds }
+        return before + max(0, currentStage.durationSeconds - secondsLeft)
     }
     var sequenceProgress: Double { min(1, max(0, Double(elapsedSeconds) / Double(totalSeconds))) }
     var nextStage: TaskStage {
@@ -269,7 +311,7 @@ final class FocusTimer: ObservableObject {
         pause()
         cancelStageCompletion()
         currentStageIndex = 0
-        secondsLeft = currentStage.minutes * 60
+        secondsLeft = currentStage.durationSeconds
     }
     func selectRoutine(_ id: UUID) {
         selectedRoutineID = id
@@ -292,7 +334,7 @@ final class FocusTimer: ObservableObject {
         pause()
         cancelStageCompletion()
         currentStageIndex = index
-        secondsLeft = currentStage.minutes * 60
+        secondsLeft = currentStage.durationSeconds
     }
     func updateStageColor(_ stageID: UUID, hex: String) {
         guard let routineIndex = routines.firstIndex(where: { $0.id == selectedRoutineID }),
@@ -305,7 +347,7 @@ final class FocusTimer: ObservableObject {
         let target = min(totalSeconds - 1, max(0, Int(Double(totalSeconds) * fraction)))
         var cursor = 0
         for (index, stage) in currentRoutine.stages.enumerated() {
-            let duration = stage.minutes * 60
+            let duration = stage.durationSeconds
             if target < cursor + duration {
                 currentStageIndex = index
                 secondsLeft = max(1, duration - (target - cursor))
@@ -344,7 +386,7 @@ final class FocusTimer: ObservableObject {
         let nextIndex = (currentStageIndex + 1) % currentRoutine.stages.count
         if nextIndex == 0 { completedRounds += 1 }
         currentStageIndex = nextIndex
-        secondsLeft = currentStage.minutes * 60
+        secondsLeft = currentStage.durationSeconds
         start()
     }
 
@@ -660,12 +702,12 @@ struct RootView: View {
                 }
                 .pickerStyle(.segmented).frame(width: 260)
 
-                if section == 0 { TimerDashboard() } else { RemindersDashboard() }
+                if section == 0 { TimerDashboard(showingAdd: $showingAdd) } else { RemindersDashboard() }
             }
             .padding(24)
         }
         .background(WindowBackgroundController(opacity: theme.backgroundOpacity, isDark: usesDarkBackground))
-        .sheet(isPresented: $showingAdd) { AddItemView(initialTab: section).frame(minWidth: 520) }
+        .sheet(isPresented: $showingAdd) { AddItemView(initialTab: section).frame(minWidth: 720) }
         .sheet(isPresented: $showingSettings) { SettingsView().frame(minWidth: 500) }
     }
 
@@ -684,14 +726,6 @@ struct RootView: View {
     private var header: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 9) {
-                Button { showingAdd = true } label: {
-                    Image(systemName: "plus").font(.title3.weight(.semibold)).frame(width: 22, height: 22)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(Color(hex: "3C3D40"))
-                .help(L10n.text(.newItem, language.selected))
-
                 VStack(alignment: .leading, spacing: 4) {
                     Text("“\(quote.localized(language.selected))”")
                         .font(.callout.weight(.semibold))
@@ -842,26 +876,46 @@ struct RootView: View {
 }
 
 struct TimerDashboard: View {
+    @Binding var showingAdd: Bool
     @EnvironmentObject private var timer: FocusTimer
     @EnvironmentObject private var language: LanguageManager
     @EnvironmentObject private var ambience: AmbiencePlayer
     @State private var importingMusic = false
+    @State private var colorStageID: UUID?
 
     var body: some View {
         VStack(spacing: 15) {
-            Menu {
-                ForEach(timer.routines) { routine in
-                    Button { timer.selectRoutine(routine.id) } label: {
-                        Text(routine.name + (routine.id == timer.selectedRoutineID ? " ✓" : ""))
+            HStack(spacing: 7) {
+                Menu {
+                    ForEach(timer.routines) { routine in
+                        Button { timer.selectRoutine(routine.id) } label: {
+                            Text(routine.name + (routine.id == timer.selectedRoutineID ? " ✓" : ""))
+                        }
                     }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "checklist")
+                        Text(timer.currentRoutine.name)
+                        Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+                    }
+                    .font(.headline).padding(.horizontal, 10).padding(.vertical, 7)
                 }
-            } label: {
-                Label(timer.currentRoutine.name, systemImage: "checklist")
-                    .font(.headline).padding(.horizontal, 14).padding(.vertical, 7)
-            }
-            .menuStyle(.borderlessButton)
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
 
-            InteractiveRoutineRing().frame(width: 340, height: 340)
+                Button { showingAdd = true } label: {
+                    Image(systemName: "plus").font(.headline.weight(.semibold)).frame(width: 22, height: 22)
+                }
+                .buttonStyle(.borderedProminent).tint(Color(hex: "3C3D40"))
+                .help(L10n.text(.newItem, language.selected))
+            }
+
+            HStack(spacing: 18) {
+                InteractiveRoutineRing(editingStageID: $colorStageID).frame(width: 340, height: 340)
+                Group {
+                    if let colorStageID { RingStageColorPanel(stageID: colorStageID) }
+                    else { Color.clear }
+                }.frame(width: 210, alignment: .leading)
+            }
 
             HStack(spacing: 14) {
                 Button { timer.reset() } label: { Image(systemName: "arrow.counterclockwise") }
@@ -876,7 +930,7 @@ struct TimerDashboard: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
             }
 
-            HStack(spacing: 10) {
+            HStack(spacing: 7) {
                 Button(action: ambience.toggle) {
                     Image(systemName: ambience.isPlaying ? "pause.fill" : "play.fill")
                         .frame(width: 18)
@@ -892,12 +946,17 @@ struct TimerDashboard: View {
                         }
                     }
                 } label: {
-                    Label(ambience.selected.title(language.selected), systemImage: "waveform")
+                    HStack(spacing: 5) {
+                        Image(systemName: "waveform")
+                        Text(ambience.selected.title(language.selected))
+                        Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+                    }
                 }
-                .menuStyle(.borderlessButton)
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
 
-                Button(L10n.text(.chooseMusic, language.selected)) { importingMusic = true }
-                    .buttonStyle(.borderless)
+                Button { importingMusic = true } label: {
+                    Label(L10n.text(.chooseMusic, language.selected), systemImage: "music.note")
+                }.buttonStyle(.borderless).fixedSize()
             }
             .font(.subheadline)
 
@@ -908,6 +967,7 @@ struct TimerDashboard: View {
         .fileImporter(isPresented: $importingMusic, allowedContentTypes: [.audio]) { result in
             if case .success(let url) = result { ambience.setCustomFile(url) }
         }
+        .onChange(of: timer.selectedRoutineID) { _ in colorStageID = nil }
     }
 }
 
@@ -1001,13 +1061,11 @@ private struct PettableCatTimerButton: View {
 }
 
 struct InteractiveRoutineRing: View {
+    @Binding var editingStageID: UUID?
     @EnvironmentObject private var timer: FocusTimer
     @EnvironmentObject private var language: LanguageManager
-    @State private var editingStageID: UUID?
     @State private var trail: [RingTrailPoint] = []
     @State private var isDraggingHandle = false
-
-    private let colorPalette = ["34363A", "5B5E63", "8F939A", "C4C7CC", "8BA7B5", "A899B4"]
 
     var body: some View {
         GeometryReader { proxy in
@@ -1022,7 +1080,7 @@ struct InteractiveRoutineRing: View {
                         .stroke(Color(hex: stage.colorHex).opacity(index == timer.currentStageIndex ? 1 : 0.62),
                                 style: StrokeStyle(lineWidth: index == timer.currentStageIndex ? 27 : 21, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: Color(hex: stage.colorHex).opacity(editingStageID == stage.id ? 0.52 : 0), radius: 8)
+                        .shadow(color: Color(hex: stage.colorHex).opacity(index == timer.currentStageIndex ? 0.26 : 0), radius: 6)
                 }
 
                 trailLayer(radius: radius, size: proxy.size)
@@ -1043,11 +1101,6 @@ struct InteractiveRoutineRing: View {
                     Text(timer.currentStage.title(language.selected)).font(.headline)
                         .foregroundStyle(Color(hex: timer.currentStage.colorHex))
                     Text(timer.remainingText).font(.system(size: 58, weight: .medium, design: .rounded)).monospacedDigit()
-                    Text(L10n.text(.clickDragHint, language.selected)).font(.caption).foregroundStyle(.secondary)
-                    if let stage = editingStage {
-                        stageColorEditor(stage)
-                            .transition(.scale(scale: 0.92).combined(with: .opacity))
-                    }
                 }
             }
             .coordinateSpace(name: "BellCatRing")
@@ -1068,44 +1121,7 @@ struct InteractiveRoutineRing: View {
                     }
                 }
             )
-            .onChange(of: timer.selectedRoutineID) { _ in editingStageID = nil }
         }
-    }
-
-    private var editingStage: TaskStage? {
-        guard let id = editingStageID else { return nil }
-        return timer.currentRoutine.stages.first(where: { $0.id == id })
-    }
-
-    private func stageColorEditor(_ stage: TaskStage) -> some View {
-        HStack(spacing: 7) {
-            Text(L10n.text(.stageColor, language.selected))
-                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            ForEach(colorPalette, id: \.self) { hex in
-                Button { timer.updateStageColor(stage.id, hex: hex) } label: {
-                    Circle().fill(Color(hex: hex))
-                        .overlay(Circle().stroke(.primary.opacity(stage.colorHex.uppercased() == hex ? 0.8 : 0.14), lineWidth: 1.5))
-                        .frame(width: 16, height: 16)
-                }
-                .buttonStyle(.plain)
-            }
-            ColorPicker("", selection: colorBinding(for: stage), supportsOpacity: false)
-                .labelsHidden().frame(width: 24)
-                .help(L10n.text(.customColor, language.selected))
-            Button { withAnimation { editingStageID = nil } } label: {
-                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 11).padding(.vertical, 7)
-        .background(.ultraThinMaterial, in: Capsule())
-    }
-
-    private func colorBinding(for stage: TaskStage) -> Binding<Color> {
-        Binding(
-            get: { Color(hex: stage.colorHex) },
-            set: { timer.updateStageColor(stage.id, hex: $0.hexString) }
-        )
     }
 
     private func handleDragGesture(in size: CGSize) -> some Gesture {
@@ -1162,19 +1178,19 @@ struct InteractiveRoutineRing: View {
 
     private func segmentBounds(_ index: Int) -> (Double, Double) {
         let stages = timer.currentRoutine.stages
-        let total = Double(max(1, stages.reduce(0) { $0 + $1.minutes }))
-        let start = Double(stages.prefix(index).reduce(0) { $0 + $1.minutes }) / total
-        let end = start + Double(stages[index].minutes) / total
+        let total = Double(max(1, stages.reduce(0) { $0 + $1.durationSeconds }))
+        let start = Double(stages.prefix(index).reduce(0) { $0 + $1.durationSeconds }) / total
+        let end = start + Double(stages[index].durationSeconds) / total
         return (start, end)
     }
 
     private func stageIndex(at fraction: Double) -> Int {
         let stages = timer.currentRoutine.stages
-        let total = Double(max(1, stages.reduce(0) { $0 + $1.minutes }))
+        let total = Double(max(1, stages.reduce(0) { $0 + $1.durationSeconds }))
         let target = fraction * total
         var cursor = 0.0
         for (index, stage) in stages.enumerated() {
-            cursor += Double(stage.minutes)
+            cursor += Double(stage.durationSeconds)
             if target < cursor { return index }
         }
         return max(0, stages.count - 1)
@@ -1184,6 +1200,42 @@ struct InteractiveRoutineRing: View {
 private struct RingTrailPoint {
     let fraction: Double
     let createdAt: Date
+}
+
+private struct RingStageColorPanel: View {
+    let stageID: UUID
+    @EnvironmentObject private var timer: FocusTimer
+    @EnvironmentObject private var language: LanguageManager
+    private let palette = ["34363A", "5B5E63", "8F939A", "C4C7CC", "8BA7B5", "A899B4"]
+
+    private var stage: TaskStage {
+        timer.currentRoutine.stages.first(where: { $0.id == stageID }) ?? timer.currentStage
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.text(.stageColor, language.selected)).font(.headline)
+            Text(stage.title(language.selected))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color(hex: stage.colorHex))
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 30), spacing: 10)], spacing: 10) {
+                ForEach(palette, id: \.self) { hex in
+                    Button { timer.updateStageColor(stage.id, hex: hex) } label: {
+                        Circle().fill(Color(hex: hex))
+                            .overlay(Circle().stroke(.primary.opacity(stage.colorHex.uppercased() == hex ? 0.9 : 0.16), lineWidth: 2))
+                            .frame(width: 27, height: 27)
+                    }.buttonStyle(.plain)
+                }
+            }
+            ColorPicker(L10n.text(.customColor, language.selected),
+                        selection: Binding(get: { Color(hex: stage.colorHex) },
+                                           set: { timer.updateStageColor(stage.id, hex: $0.hexString) }),
+                        supportsOpacity: false)
+                .font(.caption)
+        }
+        .padding(16)
+        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
 }
 
 struct RemindersDashboard: View {
@@ -1309,8 +1361,12 @@ struct StageDraft: Identifiable {
     let id = UUID()
     var kind: StageKind
     var name: String
+    var hours: Int
     var minutes: Int
+    var seconds: Int
     var colorHex: String
+
+    var durationSeconds: Int { max(1, hours * 3600 + minutes * 60 + seconds) }
 }
 
 struct NewTaskView: View {
@@ -1319,8 +1375,8 @@ struct NewTaskView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var stages = [
-        StageDraft(kind: .work, name: "", minutes: 25, colorHex: "4B4D51"),
-        StageDraft(kind: .rest, name: "", minutes: 5, colorHex: "A7A9AD")
+        StageDraft(kind: .work, name: L10n.text(.work), hours: 0, minutes: 25, seconds: 0, colorHex: "4B4D51"),
+        StageDraft(kind: .rest, name: L10n.text(.rest), hours: 0, minutes: 5, seconds: 0, colorHex: "A7A9AD")
     ]
     private let palette = ["4B4D51", "A7A9AD", "D1CEC6", "6E7074", "B9BBC0", "34363A"]
 
@@ -1329,22 +1385,21 @@ struct NewTaskView: View {
             Text(L10n.text(.createTask, language.selected)).font(.title2.bold())
             TextField(L10n.text(.taskName, language.selected), text: $name)
             ForEach($stages) { $stage in
-                HStack {
+                HStack(spacing: 9) {
                     Circle().fill(Color(hex: stage.colorHex)).frame(width: 14, height: 14)
-                    Picker("", selection: $stage.kind) {
-                        ForEach(StageKind.allCases) { Text($0.title(language.selected)).tag($0) }
-                    }.labelsHidden().frame(width: 105)
-                    if stage.kind == .other {
-                        TextField(L10n.text(.stageName, language.selected), text: $stage.name)
-                    }
-                    Stepper(L10n.text(.taskDuration, language.selected, stage.minutes), value: $stage.minutes, in: 1...180)
+                    TextField(L10n.text(.other, language.selected), text: $stage.name)
+                        .textFieldStyle(.roundedBorder).frame(minWidth: 105)
+                    durationField("h", value: $stage.hours, range: 0...23)
+                    durationField("m", value: $stage.minutes, range: 0...59)
+                    durationField("s", value: $stage.seconds, range: 0...59)
                     if stages.count > 1 {
-                        Button { stages.removeAll { $0.id == stage.id } } label: { Image(systemName: "minus.circle") }
-                            .buttonStyle(.borderless)
+                        Button { stages.removeAll { $0.id == stage.id } } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                        }.buttonStyle(.plain).help(L10n.text(.delete, language.selected))
                     }
                 }
             }
-            Button { stages.append(StageDraft(kind: .other, name: "", minutes: 10, colorHex: palette[stages.count % palette.count])) } label: {
+            Button { stages.append(StageDraft(kind: .other, name: L10n.text(.other, language.selected), hours: 0, minutes: 10, seconds: 0, colorHex: palette[stages.count % palette.count])) } label: {
                 Label(L10n.text(.addStage, language.selected), systemImage: "plus.circle")
             }
             HStack {
@@ -1354,7 +1409,7 @@ struct NewTaskView: View {
                     let routine = FocusRoutine(
                         name: name.isEmpty ? L10n.text(.focusWork, language.selected) : name,
                         stages: stages.enumerated().map { index, draft in
-                            TaskStage(kind: draft.kind, customName: draft.name, minutes: draft.minutes,
+                            TaskStage(kind: inferredKind(for: draft), customName: draft.name, durationSeconds: draft.durationSeconds,
                                       colorHex: draft.colorHex.isEmpty ? palette[index % palette.count] : draft.colorHex)
                         }
                     )
@@ -1362,6 +1417,22 @@ struct NewTaskView: View {
                 }.buttonStyle(.borderedProminent).tint(Color(hex: "3C3D40"))
             }
         }
+    }
+
+    private func durationField(_ suffix: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
+        HStack(spacing: 3) {
+            TextField("0", value: value, format: .number)
+                .textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing).frame(width: 43)
+                .onChange(of: value.wrappedValue) { newValue in value.wrappedValue = min(range.upperBound, max(range.lowerBound, newValue)) }
+            Text(suffix).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func inferredKind(for draft: StageDraft) -> StageKind {
+        let text = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text == L10n.text(.work, language.selected) { return .work }
+        if text == L10n.text(.rest, language.selected) { return .rest }
+        return .other
     }
 }
 

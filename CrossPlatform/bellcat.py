@@ -20,7 +20,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.5.3"
+VERSION = "2.5.4"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -105,6 +105,13 @@ def save_config(data):
     CONFIG_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def stage_seconds(stage):
+    """Read both the new second-precision format and legacy minute-only tasks."""
+    if "seconds" in stage:
+        return max(1, int(stage["seconds"]))
+    return max(1, int(float(stage.get("minutes", 1)) * 60))
+
+
 class BellCat(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -126,7 +133,7 @@ class BellCat(tk.Tk):
         self.minsize(650, 600)
         self.running = False
         self.stage_index = 0
-        self.seconds_left = self.stage["minutes"] * 60
+        self.seconds_left = stage_seconds(self.stage)
         self.last_tick = time.monotonic()
         self.ambience_playing = False
         self.custom_music = None
@@ -161,7 +168,6 @@ class BellCat(tk.Tk):
 
         top = ttk.Frame(self); top.pack(fill="x", padx=22, pady=18)
         left = ttk.Frame(top); left.pack(side="left", fill="x", expand=True)
-        tk.Button(left, text="＋", width=3, command=self.new_menu, bg="#3C3D40", fg="#F5F5F3", activebackground="#55575B", relief="flat", font=("TkDefaultFont", 13, "bold")).pack(anchor="w")
         quote = QUOTES[int(time.time()) % len(QUOTES)]
         localized = quote.get(self.data["language"], quote["en"])
         quote_text = f'“{localized}”'
@@ -243,10 +249,18 @@ class BellCat(tk.Tk):
         self.clear_content()
         names = [task["name"] for task in self.data["tasks"]]
         self.task_var = tk.StringVar(value=self.task["name"])
-        picker = ttk.Combobox(self.content, textvariable=self.task_var, values=names, state="readonly", width=28)
-        picker.pack(pady=4); picker.bind("<<ComboboxSelected>>", self.select_task)
-        self.canvas = tk.Canvas(self.content, width=410, height=410, bg=self.bg, highlightthickness=0)
-        self.canvas.pack(pady=6)
+        task_row = ttk.Frame(self.content); task_row.pack(pady=4)
+        picker_width = max(8, min(18, len(self.task["name"]) + 3))
+        picker = ttk.Combobox(task_row, textvariable=self.task_var, values=names, state="readonly", width=picker_width)
+        picker.pack(side="left"); picker.bind("<<ComboboxSelected>>", self.select_task)
+        tk.Button(task_row, text="＋", width=3, command=self.new_menu, bg="#3C3D40", fg="#F5F5F3",
+                  activebackground="#55575B", relief="flat", font=("TkDefaultFont", 13, "bold")).pack(side="left", padx=(7, 0))
+        ring_row = ttk.Frame(self.content); ring_row.pack(pady=6)
+        self.canvas = tk.Canvas(ring_row, width=410, height=410, bg=self.bg, highlightthickness=0)
+        self.canvas.pack(side="left")
+        self.color_panel = ttk.Frame(ring_row, width=190, height=260)
+        self.color_panel.pack(side="left", padx=(14, 0), fill="y")
+        self.color_panel.pack_propagate(False)
         self.canvas.bind("<Button-1>", self.ring_press)
         self.canvas.bind("<B1-Motion>", self.ring_drag)
         self.canvas.bind("<ButtonRelease-1>", self.ring_release)
@@ -268,9 +282,9 @@ class BellCat(tk.Tk):
         self.ambience_button = ttk.Button(audio, text="▶", width=3, command=self.toggle_ambience)
         self.ambience_button.pack(side="left", padx=5)
         self.ambience_var = tk.StringVar(value=AMBIENCE_NAMES.get(self.data.get("ambience", "ocean"), "Ocean Waves"))
-        picker = ttk.Combobox(audio, textvariable=self.ambience_var, values=list(AMBIENCE_NAMES.values())[:-1] + (["My Music"] if self.custom_music else []), state="readonly", width=18)
+        picker = ttk.Combobox(audio, textvariable=self.ambience_var, values=list(AMBIENCE_NAMES.values())[:-1] + (["My Music"] if self.custom_music else []), state="readonly", width=14)
         picker.pack(side="left", padx=5); picker.bind("<<ComboboxSelected>>", self.change_ambience)
-        ttk.Button(audio, text="♫ +", command=self.choose_music).pack(side="left", padx=5)
+        ttk.Button(audio, text="♫ +", width=4, command=self.choose_music).pack(side="left", padx=(1, 5))
         self.draw_ring()
 
     def ensure_ambience_files(self):
@@ -317,17 +331,17 @@ class BellCat(tk.Tk):
         if not hasattr(self, "canvas") or not self.canvas.winfo_exists(): return
         self.canvas.delete("all")
         x0, y0, x1, y1 = 38, 38, 372, 372
-        total = sum(s["minutes"] for s in self.task["stages"])
+        total = sum(stage_seconds(s) for s in self.task["stages"])
         angle = 90
         elapsed_before = 0
         for i, stage in enumerate(self.task["stages"]):
-            extent = -360 * stage["minutes"] / total
+            extent = -360 * stage_seconds(stage) / total
             self.canvas.create_arc(x0, y0, x1, y1, start=angle, extent=extent, style="arc",
                                    width=29 if i == self.stage_index else 22, outline=stage["color"])
             angle += extent
-            if i < self.stage_index: elapsed_before += stage["minutes"] * 60
-        elapsed = elapsed_before + self.stage["minutes"] * 60 - self.seconds_left
-        fraction = elapsed / max(1, total * 60)
+            if i < self.stage_index: elapsed_before += stage_seconds(stage)
+        elapsed = elapsed_before + stage_seconds(self.stage) - self.seconds_left
+        fraction = elapsed / max(1, total)
         theta = fraction * 2 * math.pi - math.pi / 2
         px, py = 205 + 167 * math.cos(theta), 205 + 167 * math.sin(theta)
         now = time.monotonic()
@@ -342,8 +356,11 @@ class BellCat(tk.Tk):
             self.canvas.create_oval(tx-radius, ty-radius, tx+radius, ty+radius, fill=color, outline="")
         self.canvas.create_oval(px-10, py-10, px+10, py+10, fill="white", outline=self.stage["color"], width=4)
         self.canvas.create_text(205, 170, text=self.stage["name"], fill=self.stage["color"], font=("TkDefaultFont", 15, "bold"))
-        self.canvas.create_text(205, 215, text=f"{self.seconds_left//60:02d}:{self.seconds_left%60:02d}", fill=self.fg, font=("TkDefaultFont", 42, "bold"))
-        self.canvas.create_text(205, 260, text=self.lang["hint"], fill="#888888", font=("TkDefaultFont", 10))
+        if self.seconds_left >= 3600:
+            timer_text = f"{self.seconds_left//3600:02d}:{(self.seconds_left//60)%60:02d}:{self.seconds_left%60:02d}"
+        else:
+            timer_text = f"{self.seconds_left//60:02d}:{self.seconds_left%60:02d}"
+        self.canvas.create_text(205, 215, text=timer_text, fill=self.fg, font=("TkDefaultFont", 42, "bold"))
         if self.awaiting_stage_advance:
             next_stage = self.task["stages"][(self.stage_index + 1) % len(self.task["stages"])]
             self.canvas.create_text(205, 292, text=f"🐱 → {next_stage['name']}", fill="#A57C35", font=("TkDefaultFont", 11, "bold"))
@@ -353,9 +370,9 @@ class BellCat(tk.Tk):
 
     def ring_press(self, event):
         fraction = self.ring_fraction(event.x, event.y)
-        current_total = sum(s["minutes"] for s in self.task["stages"]) * 60
-        elapsed_before = sum(s["minutes"] * 60 for s in self.task["stages"][:self.stage_index])
-        current_fraction = (elapsed_before + self.stage["minutes"] * 60 - self.seconds_left) / max(1, current_total)
+        current_total = sum(stage_seconds(s) for s in self.task["stages"])
+        elapsed_before = sum(stage_seconds(s) for s in self.task["stages"][:self.stage_index])
+        current_fraction = (elapsed_before + stage_seconds(self.stage) - self.seconds_left) / max(1, current_total)
         theta = current_fraction * 2 * math.pi - math.pi / 2
         handle_x, handle_y = 205 + 167 * math.cos(theta), 205 + 167 * math.sin(theta)
         if math.hypot(event.x - handle_x, event.y - handle_y) <= 30:
@@ -367,12 +384,12 @@ class BellCat(tk.Tk):
             target = fraction * current_total
             cursor = 0
             for index, stage in enumerate(self.task["stages"]):
-                cursor += stage["minutes"] * 60
+                cursor += stage_seconds(stage)
                 if target < cursor:
                     self.stage_index = index
-                    self.seconds_left = stage["minutes"] * 60
+                    self.seconds_left = stage_seconds(stage)
                     self.draw_ring()
-                    self.after_idle(self.choose_stage_color)
+                    self.show_stage_color_panel()
                     return
 
     def ring_drag(self, event):
@@ -383,10 +400,10 @@ class BellCat(tk.Tk):
         if not self.ring_trail or now - self.ring_trail[-1][1] > .018 or abs(fraction - self.ring_trail[-1][0]) > .004:
             self.ring_trail.append((fraction, now))
             self.ring_trail = self.ring_trail[-24:]
-        target = fraction * sum(s["minutes"] for s in self.task["stages"]) * 60
+        target = fraction * sum(stage_seconds(s) for s in self.task["stages"])
         cursor = 0
         for i, stage in enumerate(self.task["stages"]):
-            duration = stage["minutes"] * 60
+            duration = stage_seconds(stage)
             if target < cursor + duration:
                 self.stage_index = i; self.seconds_left = max(1, int(duration - (target - cursor))); break
             cursor += duration
@@ -406,13 +423,30 @@ class BellCat(tk.Tk):
         else:
             self.trail_animation = None
 
+    def show_stage_color_panel(self):
+        if not hasattr(self, "color_panel") or not self.color_panel.winfo_exists(): return
+        for child in self.color_panel.winfo_children(): child.destroy()
+        label = COLOR_LABELS.get(self.data["language"], "Stage color")
+        ttk.Label(self.color_panel, text=label, font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(58, 3))
+        ttk.Label(self.color_panel, text=self.stage["name"]).pack(anchor="w", pady=(0, 12))
+        palette = ttk.Frame(self.color_panel); palette.pack(anchor="w")
+        for index, color in enumerate(["#4B4D51", "#74767A", "#A7A9AD", "#D1CEC6", "#6B7280", "#8B6F47", "#597A6A", "#7A667E"]):
+            button = tk.Button(palette, bg=color, activebackground=color, width=3, height=1, relief="flat",
+                               command=lambda value=color: self.set_stage_color(value))
+            button.grid(row=index // 4, column=index % 4, padx=3, pady=3)
+        ttk.Button(self.color_panel, text="…", width=5, command=self.choose_stage_color).pack(anchor="w", pady=(10, 0))
+
+    def set_stage_color(self, color):
+        self.stage["color"] = color.upper()
+        save_config(self.data)
+        self.draw_ring()
+        self.show_stage_color_panel()
+
     def choose_stage_color(self):
         label = COLOR_LABELS.get(self.data["language"], "Stage color")
         chosen = colorchooser.askcolor(color=self.stage["color"], title=f'{self.stage["name"]} · {label}', parent=self)[1]
         if chosen:
-            self.stage["color"] = chosen.upper()
-            save_config(self.data)
-            self.draw_ring()
+            self.set_stage_color(chosen)
 
     @staticmethod
     def blend_color(foreground, background, amount):
@@ -452,13 +486,13 @@ class BellCat(tk.Tk):
             if self.stage_index == 0:
                 self.data["completed"] += 1
                 save_config(self.data)
-            self.seconds_left = self.stage["minutes"] * 60
+            self.seconds_left = stage_seconds(self.stage)
         self.running = True
         self.last_tick = time.monotonic()
 
     def reset(self):
         self.running = False; self.stop_stage_alarm(); self.awaiting_stage_advance = False
-        self.stage_index = 0; self.seconds_left = self.stage["minutes"] * 60; self.draw_ring()
+        self.stage_index = 0; self.seconds_left = stage_seconds(self.stage); self.draw_ring()
 
     def tick(self):
         if self.running and time.monotonic() - self.last_tick >= 1:
@@ -479,19 +513,63 @@ class BellCat(tk.Tk):
         popup.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
 
     def new_task(self):
-        name = simpledialog.askstring(self.lang["task"], self.lang["title"], parent=self)
-        if not name: return
-        stages = []
+        window = tk.Toplevel(self); window.title(self.lang["task"]); window.geometry("720x430")
+        window.transient(self); window.grab_set()
+        body = ttk.Frame(window); body.pack(fill="both", expand=True, padx=24, pady=20)
+        title_row = ttk.Frame(body); title_row.pack(fill="x", pady=(0, 14))
+        ttk.Label(title_row, text=self.lang["title"]).pack(side="left")
+        task_name = ttk.Entry(title_row, width=30); task_name.pack(side="left", padx=(12, 0)); task_name.focus_set()
         colors = ["#4B4D51", "#A7A9AD", "#D1CEC6", "#6E7074", "#B9BBC0"]
-        while True:
-            stage_name = simpledialog.askstring(self.lang["add_stage"], self.lang["title"], parent=self)
-            if not stage_name: break
-            minutes = simpledialog.askinteger(self.lang["minutes"], self.lang["minutes"], minvalue=1, maxvalue=240, parent=self)
-            if minutes: stages.append({"name": stage_name, "minutes": minutes, "color": colors[len(stages) % len(colors)]})
-            if not messagebox.askyesno(self.lang["add_stage"], self.lang["add_stage"], parent=self): break
-        if stages:
-            self.data["tasks"].append({"name": name, "stages": stages}); self.data["selected_task"] = len(self.data["tasks"]) - 1
-            save_config(self.data); self.reset(); self.show_timer()
+        rows = [
+            {"name": tk.StringVar(value=self.lang["work"]), "h": tk.StringVar(value="0"), "m": tk.StringVar(value="25"), "s": tk.StringVar(value="0"), "color": colors[0]},
+            {"name": tk.StringVar(value=self.lang["rest"]), "h": tk.StringVar(value="0"), "m": tk.StringVar(value="5"), "s": tk.StringVar(value="0"), "color": colors[1]},
+        ]
+        stages_frame = ttk.Frame(body); stages_frame.pack(fill="x")
+
+        def digits_only(value): return not value or value.isdigit()
+        validator = (window.register(digits_only), "%P")
+
+        def remove_stage(index):
+            if len(rows) > 1:
+                rows.pop(index); render_rows()
+
+        def render_rows():
+            for child in stages_frame.winfo_children(): child.destroy()
+            for index, row in enumerate(rows):
+                line = ttk.Frame(stages_frame); line.pack(fill="x", pady=5)
+                tk.Label(line, text="●", fg=row["color"], bg=self.bg, font=("TkDefaultFont", 14)).pack(side="left", padx=(0, 6))
+                ttk.Entry(line, textvariable=row["name"], width=21).pack(side="left")
+                for key, suffix, width in (("h", "h", 4), ("m", "m", 4), ("s", "s", 4)):
+                    ttk.Entry(line, textvariable=row[key], width=width, validate="key", validatecommand=validator).pack(side="left", padx=(9, 2))
+                    ttk.Label(line, text=suffix).pack(side="left")
+                tk.Button(line, text="×", fg="#D32F2F", activeforeground="#A40000", relief="flat", bg=self.bg,
+                          font=("TkDefaultFont", 14, "bold"), command=lambda i=index: remove_stage(i)).pack(side="left", padx=(12, 0))
+
+        def add_stage():
+            rows.append({"name": tk.StringVar(value=self.lang["other"]), "h": tk.StringVar(value="0"),
+                         "m": tk.StringVar(value="10"), "s": tk.StringVar(value="0"), "color": colors[len(rows) % len(colors)]})
+            render_rows()
+
+        def save_task():
+            name = task_name.get().strip()
+            if not name:
+                messagebox.showerror(APP_NAME, self.lang["title"], parent=window); return
+            stages = []
+            for row in rows:
+                stage_name = row["name"].get().strip() or self.lang["other"]
+                hours = min(23, int(row["h"].get() or 0))
+                minutes = min(59, int(row["m"].get() or 0))
+                seconds = min(59, int(row["s"].get() or 0))
+                stages.append({"name": stage_name, "seconds": max(1, hours * 3600 + minutes * 60 + seconds), "color": row["color"]})
+            self.data["tasks"].append({"name": name, "stages": stages})
+            self.data["selected_task"] = len(self.data["tasks"]) - 1
+            save_config(self.data); window.destroy(); self.reset(); self.show_timer()
+
+        render_rows()
+        ttk.Button(body, text=f"＋ {self.lang['add_stage']}", command=add_stage).pack(anchor="w", pady=(10, 0))
+        actions = ttk.Frame(body); actions.pack(side="bottom", fill="x", pady=(18, 0))
+        ttk.Button(actions, text=self.lang["save"], command=save_task).pack(side="right")
+        ttk.Button(actions, text=self.lang["cancel"], command=window.destroy).pack(side="right", padx=(0, 8))
 
     def show_reminders(self):
         self.clear_content()
