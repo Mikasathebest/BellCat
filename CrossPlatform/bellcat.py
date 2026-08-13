@@ -19,7 +19,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.3.1"
+VERSION = "2.3.2"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 
@@ -63,6 +63,15 @@ END_SOUND_LABELS = {
     "Français": ("Son de fin", "Écouter 6 s", "Arrêter l’écoute"), "العربية": ("صوت الانتهاء", "معاينة 6 ثوانٍ", "إيقاف المعاينة"),
     "한국어": ("종료음", "6초 미리듣기", "미리듣기 중지")
 }
+EASTER_EGG_MESSAGES = {
+    "中文": (["专注爪已上线 🐾", "摸摸猫，继续加油！", "叮！送你一颗专注星 ✦"], "喵！你发现了 BellCat 的秘密 ✦"),
+    "English": (["Focus paws activated 🐾", "A tiny cat boost for you!", "Ding! One focus star for you ✦"], "Meow! You found BellCat's secret ✦"),
+    "日本語": (["集中モード、肉球で起動 🐾", "猫パワーをどうぞ！", "チン！集中の星をひとつ ✦"], "ニャー！BellCatの秘密を発見 ✦"),
+    "Español": (["Patitas de enfoque activadas 🐾", "¡Un impulso gatuno para ti!", "¡Ding! Una estrella de enfoque ✦"], "¡Miau! Descubriste el secreto de BellCat ✦"),
+    "Français": (["Pattes de concentration activées 🐾", "Un petit coup de pouce félin !", "Ding ! Une étoile de concentration ✦"], "Miaou ! Vous avez trouvé le secret de BellCat ✦"),
+    "العربية": (["تم تفعيل مخالب التركيز 🐾", "دفعة قطط صغيرة لك!", "رنّة! نجمة تركيز لك ✦"], "مياو! لقد اكتشفت سر BellCat ✦"),
+    "한국어": (["집중 발바닥 활성화 🐾", "고양이 기운을 받아요!", "딩! 집중 별 하나를 드려요 ✦"], "야옹! BellCat의 비밀을 찾았어요 ✦")
+}
 
 
 def load_config():
@@ -88,6 +97,10 @@ class BellCat(tk.Tk):
         self.trail_animation = None
         self.preview_channel = None
         self.preview_stop_job = None
+        self.logo_click_count = 0
+        self.logo_animation_jobs = []
+        self.logo_particles = []
+        self.logo_message = None
         self.data = load_config()
         self.lang = LANGUAGES.get(self.data["language"], LANGUAGES["English"])
         self.title(f"BellCat {VERSION}")
@@ -136,7 +149,10 @@ class BellCat(tk.Tk):
         if self.data["language"] != "English": quote_text += f'\n“{quote["en"]}”'
         quote_text += f'\n— {quote["source"]}'
         ttk.Label(left, text=quote_text, font=("TkDefaultFont", 9), wraplength=430, justify="left").pack(anchor="w", pady=(8, 0))
-        ttk.Label(top, text="✦ BellCat", font=("TkDefaultFont", 20, "bold"), foreground=self.fg).pack(side="right")
+        self.logo_label = tk.Label(top, text="✦ BellCat", font=("TkDefaultFont", 20, "bold"),
+                                   fg=self.fg, bg=self.bg, cursor="hand2", padx=4)
+        self.logo_label.pack(side="right")
+        self.logo_label.bind("<Button-1>", self.trigger_logo_easter_egg)
         ttk.Button(top, text="⚙", width=3, command=self.settings_dialog).pack(side="right", padx=8)
 
         nav = ttk.Frame(self); nav.pack(pady=4)
@@ -144,6 +160,62 @@ class BellCat(tk.Tk):
         ttk.Button(nav, text=self.lang["reminders"], command=self.show_reminders).pack(side="left", padx=4)
         self.content = ttk.Frame(self); self.content.pack(fill="both", expand=True, padx=22, pady=12)
         self.show_timer()
+
+    def trigger_logo_easter_egg(self, _event=None):
+        self.logo_click_count += 1
+        for job in self.logo_animation_jobs:
+            try: self.after_cancel(job)
+            except Exception: pass
+        self.logo_animation_jobs.clear()
+        for particle in self.logo_particles:
+            try: particle.destroy()
+            except Exception: pass
+        self.logo_particles.clear()
+        if self.logo_message is not None:
+            try: self.logo_message.destroy()
+            except Exception: pass
+
+        regular, secret = EASTER_EGG_MESSAGES.get(self.data["language"], EASTER_EGG_MESSAGES["English"])
+        message = secret if self.logo_click_count % 5 == 0 else random.choice(regular)
+        self.logo_label.configure(text="🐾 BellCat" if self.logo_click_count % 5 == 0 else "✦ BellCat ✦",
+                                  font=("TkDefaultFont", 24, "bold"), fg="#C7A760")
+        self.logo_message = tk.Label(self, text=message, font=("TkDefaultFont", 10, "bold"),
+                                     bg=self.card, fg=self.fg, padx=10, pady=5, relief="flat")
+        self.logo_message.place(relx=.77, y=66, anchor="n")
+
+        self.update_idletasks()
+        center_x = self.logo_label.winfo_rootx() - self.winfo_rootx() + self.logo_label.winfo_width() / 2
+        center_y = self.logo_label.winfo_rooty() - self.winfo_rooty() + self.logo_label.winfo_height() / 2
+        vectors = [(-55,-30), (-62,15), (-25,-48), (48,-38), (64,10), (30,42), (-18,45)]
+        symbols = ["✦", "🐾", "★", "✦", "🐾", "★", "✦"]
+        for symbol in symbols:
+            particle = tk.Label(self, text=symbol, font=("TkDefaultFont", 12, "bold"), bg=self.bg, fg="#C7A760")
+            particle.place(x=center_x, y=center_y, anchor="center")
+            particle.lift(); self.logo_particles.append(particle)
+        for frame in range(1, 13):
+            self.logo_animation_jobs.append(self.after(frame * 38, lambda step=frame, cx=center_x, cy=center_y, moves=vectors: self.animate_logo_particles(step, cx, cy, moves)))
+        self.logo_animation_jobs.append(self.after(180, lambda: self.logo_label.configure(font=("TkDefaultFont", 18, "bold"))))
+        self.logo_animation_jobs.append(self.after(360, lambda: self.logo_label.configure(font=("TkDefaultFont", 20, "bold"), fg=self.fg)))
+        self.logo_animation_jobs.append(self.after(1800, self.clear_logo_easter_egg))
+
+    def animate_logo_particles(self, step, center_x, center_y, vectors):
+        progress = step / 12
+        for particle, (dx, dy) in zip(self.logo_particles, vectors):
+            if particle.winfo_exists():
+                particle.place(x=center_x + dx * progress, y=center_y + dy * progress, anchor="center")
+                if step > 8: particle.configure(fg=self.card)
+
+    def clear_logo_easter_egg(self):
+        for particle in self.logo_particles:
+            try: particle.destroy()
+            except Exception: pass
+        self.logo_particles.clear()
+        if self.logo_message is not None:
+            try: self.logo_message.destroy()
+            except Exception: pass
+            self.logo_message = None
+        if hasattr(self, "logo_label") and self.logo_label.winfo_exists():
+            self.logo_label.configure(text="✦ BellCat", font=("TkDefaultFont", 20, "bold"), fg=self.fg)
 
     def clear_content(self):
         for child in self.content.winfo_children(): child.destroy()

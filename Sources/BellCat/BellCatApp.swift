@@ -594,6 +594,13 @@ struct RootView: View {
     @State private var showingAdd = false
     @State private var showingSettings = false
     @State private var quote = QuoteItem.all.randomElement()!
+    @State private var logoScale = 1.0
+    @State private var logoRotation = 0.0
+    @State private var eggVisible = false
+    @State private var eggExpanded = false
+    @State private var eggMessage = ""
+    @State private var eggGeneration = 0
+    @State private var eggClickCount = 0
 
     var body: some View {
         ZStack {
@@ -655,9 +662,7 @@ struct RootView: View {
             .onTapGesture { quote = QuoteItem.all.randomElement()! }
             Spacer(minLength: 12)
             HStack(spacing: 12) {
-                Label("BellCat", systemImage: "sparkles")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(.primary)
+                bellCatEasterEgg
                 Menu {
                     ForEach(AppLanguage.allCases) { option in
                         Button {
@@ -672,6 +677,116 @@ struct RootView: View {
                     .help(L10n.text(.settings, language.selected))
             }
         }
+    }
+
+    private var bellCatEasterEgg: some View {
+        Button(action: triggerBellCatEasterEgg) {
+            ZStack {
+                if eggVisible {
+                    ForEach(Array(easterEggParticles.enumerated()), id: \.offset) { index, particle in
+                        Image(systemName: particle.symbol)
+                            .font(.system(size: particle.size, weight: .semibold))
+                            .foregroundStyle(particle.color)
+                            .scaleEffect(eggExpanded ? 0.45 : 1.15)
+                            .opacity(eggExpanded ? 0 : 1)
+                            .offset(x: eggExpanded ? particle.offset.width : 0,
+                                    y: eggExpanded ? particle.offset.height : 0)
+                    }
+                }
+
+                Label("BellCat", systemImage: eggClickCount.isMultiple(of: 5) && eggClickCount > 0 ? "pawprint.fill" : "sparkles")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.primary)
+                    .scaleEffect(logoScale)
+                    .rotationEffect(.degrees(logoRotation))
+            }
+            .frame(minWidth: 108, minHeight: 34)
+            .overlay(alignment: .bottom) {
+                if eggVisible {
+                    Text(eggMessage)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+                        .fixedSize()
+                        .offset(y: 35)
+                        .transition(.scale(scale: 0.72).combined(with: .opacity))
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("BellCat")
+    }
+
+    private var easterEggParticles: [(symbol: String, offset: CGSize, size: CGFloat, color: Color)] {
+        let accent = eggClickCount.isMultiple(of: 5) ? Color(hex: "D7A94C") : Color(hex: "8F939A")
+        return [
+            ("sparkle", CGSize(width: -52, height: -30), 15, accent),
+            ("pawprint.fill", CGSize(width: -58, height: 18), 13, Color(hex: "6E7074")),
+            ("star.fill", CGSize(width: -24, height: -48), 9, Color(hex: "C7A760")),
+            ("sparkles", CGSize(width: 45, height: -37), 16, accent),
+            ("pawprint.fill", CGSize(width: 62, height: 8), 12, Color(hex: "8F939A")),
+            ("star.fill", CGSize(width: 29, height: 42), 8, Color(hex: "C7A760")),
+            ("sparkle", CGSize(width: -18, height: 45), 12, Color(hex: "B9BBC0"))
+        ]
+    }
+
+    private func triggerBellCatEasterEgg() {
+        eggClickCount += 1
+        eggGeneration += 1
+        let generation = eggGeneration
+        eggMessage = easterEggMessage
+        eggVisible = true
+        eggExpanded = false
+        logoScale = 1
+        logoRotation = 0
+
+        withAnimation(.interpolatingSpring(stiffness: 360, damping: 12)) {
+            logoScale = 1.24
+            logoRotation = eggClickCount.isMultiple(of: 2) ? 8 : -8
+        }
+        withAnimation(.easeOut(duration: 0.7)) { eggExpanded = true }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            guard generation == eggGeneration else { return }
+            withAnimation(.interpolatingSpring(stiffness: 300, damping: 10)) {
+                logoScale = 0.94
+                logoRotation = eggClickCount.isMultiple(of: 2) ? -5 : 5
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
+            guard generation == eggGeneration else { return }
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) {
+                logoScale = 1
+                logoRotation = 0
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            guard generation == eggGeneration else { return }
+            withAnimation(.easeOut(duration: 0.3)) { eggVisible = false }
+        }
+    }
+
+    private var easterEggMessage: String {
+        if eggClickCount.isMultiple(of: 5) {
+            return [
+                AppLanguage.zhHans: "喵！你发现了 BellCat 的秘密 ✦", .en: "Meow! You found BellCat’s secret ✦",
+                .ja: "ニャー！BellCatの秘密を発見 ✦", .es: "¡Miau! Descubriste el secreto de BellCat ✦",
+                .fr: "Miaou ! Vous avez trouvé le secret de BellCat ✦", .ar: "مياو! لقد اكتشفت سر BellCat ✦",
+                .ko: "야옹! BellCat의 비밀을 찾았어요 ✦"
+            ][language.selected]!
+        }
+        let messages: [AppLanguage: [String]] = [
+            .zhHans: ["专注爪已上线 🐾", "摸摸猫，继续加油！", "叮！送你一颗专注星 ✦"],
+            .en: ["Focus paws activated 🐾", "A tiny cat boost for you!", "Ding! One focus star for you ✦"],
+            .ja: ["集中モード、肉球で起動 🐾", "猫パワーをどうぞ！", "チン！集中の星をひとつ ✦"],
+            .es: ["Patitas de enfoque activadas 🐾", "¡Un impulso gatuno para ti!", "¡Ding! Una estrella de enfoque ✦"],
+            .fr: ["Pattes de concentration activées 🐾", "Un petit coup de pouce félin !", "Ding ! Une étoile de concentration ✦"],
+            .ar: ["تم تفعيل مخالب التركيز 🐾", "دفعة قطط صغيرة لك!", "رنّة! نجمة تركيز لك ✦"],
+            .ko: ["집중 발바닥 활성화 🐾", "고양이 기운을 받아요!", "딩! 집중 별 하나를 드려요 ✦"]
+        ]
+        return messages[language.selected]!.randomElement()!
     }
 }
 
