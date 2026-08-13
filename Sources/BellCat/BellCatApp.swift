@@ -319,6 +319,12 @@ final class FocusTimer: ObservableObject {
         currentStageIndex = index
         secondsLeft = currentStage.minutes * 60
     }
+    func updateStageColor(_ stageID: UUID, hex: String) {
+        guard let routineIndex = routines.firstIndex(where: { $0.id == selectedRoutineID }),
+              let stageIndex = routines[routineIndex].stages.firstIndex(where: { $0.id == stageID }) else { return }
+        routines[routineIndex].stages[stageIndex].colorHex = hex
+        saveRoutines()
+    }
     func seek(to fraction: Double) {
         let target = min(totalSeconds - 1, max(0, Int(Double(totalSeconds) * fraction)))
         var cursor = 0
@@ -710,6 +716,11 @@ struct TimerDashboard: View {
 struct InteractiveRoutineRing: View {
     @EnvironmentObject private var timer: FocusTimer
     @EnvironmentObject private var language: LanguageManager
+    @State private var editingStageID: UUID?
+    @State private var trail: [RingTrailPoint] = []
+    @State private var isDraggingHandle = false
+
+    private let colorPalette = ["34363A", "5B5E63", "8F939A", "C4C7CC", "8BA7B5", "A899B4"]
 
     var body: some View {
         GeometryReader { proxy in
@@ -724,32 +735,131 @@ struct InteractiveRoutineRing: View {
                         .stroke(Color(hex: stage.colorHex).opacity(index == timer.currentStageIndex ? 1 : 0.62),
                                 style: StrokeStyle(lineWidth: index == timer.currentStageIndex ? 27 : 21, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                        .onTapGesture { timer.selectStage(index) }
+                        .shadow(color: Color(hex: stage.colorHex).opacity(editingStageID == stage.id ? 0.52 : 0), radius: 8)
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                                timer.selectStage(index)
+                                editingStageID = stage.id
+                            }
+                        }
                 }
+
+                trailLayer(radius: radius, size: proxy.size)
 
                 Circle().fill(.white).shadow(color: .black.opacity(0.25), radius: 4)
                     .overlay(Circle().stroke(Color(hex: timer.currentStage.colorHex), lineWidth: 5))
                     .frame(width: 24, height: 24)
+                    .padding(12)
+                    .contentShape(Circle())
                     .offset(x: radius * cos(timer.sequenceProgress * 2 * .pi - .pi / 2),
                             y: radius * sin(timer.sequenceProgress * 2 * .pi - .pi / 2))
+                    .scaleEffect(isDraggingHandle ? 1.2 : 1)
+                    .shadow(color: Color(hex: timer.currentStage.colorHex).opacity(isDraggingHandle ? 0.8 : 0.3),
+                            radius: isDraggingHandle ? 12 : 4)
+                    .gesture(handleDragGesture(in: proxy.size))
 
                 VStack(spacing: 7) {
                     Text(timer.currentStage.title(language.selected)).font(.headline)
                         .foregroundStyle(Color(hex: timer.currentStage.colorHex))
                     Text(timer.remainingText).font(.system(size: 58, weight: .medium, design: .rounded)).monospacedDigit()
                     Text(L10n.text(.clickDragHint, language.selected)).font(.caption).foregroundStyle(.secondary)
+                    if let stage = editingStage {
+                        stageColorEditor(stage)
+                            .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    }
                 }
             }
-            .contentShape(Circle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-                let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
-                let dx = value.location.x - center.x
-                let dy = value.location.y - center.y
-                var angle = atan2(dy, dx) + .pi / 2
-                if angle < 0 { angle += 2 * .pi }
-                timer.seek(to: angle / (2 * .pi))
-            })
+            .coordinateSpace(name: "BellCatRing")
+            .onChange(of: timer.selectedRoutineID) { _ in editingStageID = nil }
         }
+    }
+
+    private var editingStage: TaskStage? {
+        guard let id = editingStageID else { return nil }
+        return timer.currentRoutine.stages.first(where: { $0.id == id })
+    }
+
+    private func stageColorEditor(_ stage: TaskStage) -> some View {
+        HStack(spacing: 7) {
+            Text(L10n.text(.stageColor, language.selected))
+                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            ForEach(colorPalette, id: \.self) { hex in
+                Button { timer.updateStageColor(stage.id, hex: hex) } label: {
+                    Circle().fill(Color(hex: hex))
+                        .overlay(Circle().stroke(.primary.opacity(stage.colorHex.uppercased() == hex ? 0.8 : 0.14), lineWidth: 1.5))
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
+            }
+            ColorPicker("", selection: colorBinding(for: stage), supportsOpacity: false)
+                .labelsHidden().frame(width: 24)
+                .help(L10n.text(.customColor, language.selected))
+            Button { withAnimation { editingStageID = nil } } label: {
+                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 11).padding(.vertical, 7)
+        .background(.ultraThinMaterial, in: Capsule())
+    }
+
+    private func colorBinding(for stage: TaskStage) -> Binding<Color> {
+        Binding(
+            get: { Color(hex: stage.colorHex) },
+            set: { timer.updateStageColor(stage.id, hex: $0.hexString) }
+        )
+    }
+
+    private func handleDragGesture(in size: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("BellCatRing"))
+            .onChanged { value in
+                isDraggingHandle = true
+                let fraction = ringFraction(at: value.location, in: size)
+                timer.seek(to: fraction)
+                let now = Date()
+                if trail.last.map({ now.timeIntervalSince($0.createdAt) > 0.018 || abs($0.fraction - fraction) > 0.004 }) ?? true {
+                    trail.append(RingTrailPoint(fraction: fraction, createdAt: now))
+                    if trail.count > 24 { trail.removeFirst(trail.count - 24) }
+                }
+            }
+            .onEnded { value in
+                timer.seek(to: ringFraction(at: value.location, in: size))
+                withAnimation(.spring(response: 0.24, dampingFraction: 0.62)) { isDraggingHandle = false }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.72) {
+                    if !isDraggingHandle { trail.removeAll() }
+                }
+            }
+    }
+
+    private func trailLayer(radius: CGFloat, size: CGSize) -> some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: trail.isEmpty)) { timeline in
+            Canvas { context, _ in
+                let now = timeline.date
+                for (index, point) in trail.enumerated() {
+                    let age = now.timeIntervalSince(point.createdAt)
+                    guard age < 0.72 else { continue }
+                    let life = max(0, 1 - age / 0.72)
+                    let rank = Double(index + 1) / Double(max(1, trail.count))
+                    let diameter = CGFloat(4 + 12 * life * rank)
+                    let theta = point.fraction * 2 * .pi - .pi / 2
+                    let center = CGPoint(x: size.width / 2 + radius * cos(theta),
+                                         y: size.height / 2 + radius * sin(theta))
+                    let rect = CGRect(x: center.x - diameter / 2, y: center.y - diameter / 2,
+                                      width: diameter, height: diameter)
+                    context.fill(Path(ellipseIn: rect),
+                                 with: .color(Color(hex: timer.currentStage.colorHex).opacity(0.56 * life * rank)))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func ringFraction(at point: CGPoint, in size: CGSize) -> Double {
+        let dx = point.x - size.width / 2
+        let dy = point.y - size.height / 2
+        var angle = atan2(dy, dx) + .pi / 2
+        if angle < 0 { angle += 2 * .pi }
+        return angle / (2 * .pi)
     }
 
     private func segmentBounds(_ index: Int) -> (Double, Double) {
@@ -759,6 +869,11 @@ struct InteractiveRoutineRing: View {
         let end = start + Double(stages[index].minutes) / total
         return (start, end)
     }
+}
+
+private struct RingTrailPoint {
+    let fraction: Double
+    let createdAt: Date
 }
 
 struct RemindersDashboard: View {
@@ -982,5 +1097,11 @@ extension Color {
         let g = Double((value >> 8) & 0xff) / 255
         let b = Double(value & 0xff) / 255
         self.init(red: r, green: g, blue: b)
+    }
+
+    var hexString: String {
+        guard let color = NSColor(self).usingColorSpace(.deviceRGB) else { return "4B4D51" }
+        return String(format: "%02X%02X%02X", Int(color.redComponent * 255),
+                      Int(color.greenComponent * 255), Int(color.blueComponent * 255))
     }
 }

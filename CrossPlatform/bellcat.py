@@ -19,7 +19,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.2.1"
+VERSION = "2.3.0"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 
@@ -56,6 +56,7 @@ PRESET_TASKS = [
 ]
 
 AMBIENCE_NAMES = {"ocean": "Ocean Waves", "wind": "Wind", "rain": "Rain", "rainforest": "Rainforest Birds", "custom": "My Music"}
+COLOR_LABELS = {"中文": "阶段颜色", "English": "Stage color", "日本語": "ステージ色", "Español": "Color de etapa", "Français": "Couleur de l’étape", "العربية": "لون المرحلة", "한국어": "단계 색상"}
 
 
 def load_config():
@@ -76,6 +77,9 @@ def save_config(data):
 class BellCat(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.ring_trail = []
+        self.dragging_ring_handle = False
+        self.trail_animation = None
         self.data = load_config()
         self.lang = LANGUAGES.get(self.data["language"], LANGUAGES["English"])
         self.title(f"BellCat {VERSION}")
@@ -144,7 +148,9 @@ class BellCat(tk.Tk):
         picker.pack(pady=4); picker.bind("<<ComboboxSelected>>", self.select_task)
         self.canvas = tk.Canvas(self.content, width=410, height=410, bg=self.bg, highlightthickness=0)
         self.canvas.pack(pady=6)
-        self.canvas.bind("<Button-1>", self.seek_ring); self.canvas.bind("<B1-Motion>", self.seek_ring)
+        self.canvas.bind("<Button-1>", self.ring_press)
+        self.canvas.bind("<B1-Motion>", self.ring_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.ring_release)
         controls = ttk.Frame(self.content); controls.pack(pady=8)
         ttk.Button(controls, text=self.lang["reset"], command=self.reset).pack(side="left", padx=6)
         self.start_button = ttk.Button(controls, text=self.lang["pause"] if self.running else self.lang["start"], command=self.toggle)
@@ -221,14 +227,54 @@ class BellCat(tk.Tk):
         fraction = elapsed / max(1, total * 60)
         theta = fraction * 2 * math.pi - math.pi / 2
         px, py = 205 + 167 * math.cos(theta), 205 + 167 * math.sin(theta)
+        now = time.monotonic()
+        self.ring_trail = [(f, created) for f, created in self.ring_trail if now - created < .72]
+        for index, (trail_fraction, created) in enumerate(self.ring_trail):
+            life = max(0, 1 - (now - created) / .72)
+            rank = (index + 1) / max(1, len(self.ring_trail))
+            trail_theta = trail_fraction * 2 * math.pi - math.pi / 2
+            tx, ty = 205 + 167 * math.cos(trail_theta), 205 + 167 * math.sin(trail_theta)
+            radius = max(2, int(8 * life * rank))
+            color = self.blend_color(self.stage["color"], self.bg, .42 + .58 * life * rank)
+            self.canvas.create_oval(tx-radius, ty-radius, tx+radius, ty+radius, fill=color, outline="")
         self.canvas.create_oval(px-10, py-10, px+10, py+10, fill="white", outline=self.stage["color"], width=4)
         self.canvas.create_text(205, 170, text=self.stage["name"], fill=self.stage["color"], font=("TkDefaultFont", 15, "bold"))
         self.canvas.create_text(205, 215, text=f"{self.seconds_left//60:02d}:{self.seconds_left%60:02d}", fill=self.fg, font=("TkDefaultFont", 42, "bold"))
         self.canvas.create_text(205, 260, text=self.lang["hint"], fill="#888888", font=("TkDefaultFont", 10))
 
-    def seek_ring(self, event):
-        dx, dy = event.x - 205, event.y - 205
-        fraction = ((math.atan2(dy, dx) + math.pi / 2) % (2 * math.pi)) / (2 * math.pi)
+    def ring_fraction(self, x, y):
+        return ((math.atan2(y - 205, x - 205) + math.pi / 2) % (2 * math.pi)) / (2 * math.pi)
+
+    def ring_press(self, event):
+        fraction = self.ring_fraction(event.x, event.y)
+        current_total = sum(s["minutes"] for s in self.task["stages"]) * 60
+        elapsed_before = sum(s["minutes"] * 60 for s in self.task["stages"][:self.stage_index])
+        current_fraction = (elapsed_before + self.stage["minutes"] * 60 - self.seconds_left) / max(1, current_total)
+        theta = current_fraction * 2 * math.pi - math.pi / 2
+        handle_x, handle_y = 205 + 167 * math.cos(theta), 205 + 167 * math.sin(theta)
+        if math.hypot(event.x - handle_x, event.y - handle_y) <= 30:
+            self.dragging_ring_handle = True
+            self.ring_drag(event)
+            return
+        if 138 <= math.hypot(event.x - 205, event.y - 205) <= 194:
+            target = fraction * current_total
+            cursor = 0
+            for index, stage in enumerate(self.task["stages"]):
+                cursor += stage["minutes"] * 60
+                if target < cursor:
+                    self.stage_index = index
+                    self.seconds_left = stage["minutes"] * 60
+                    self.draw_ring()
+                    self.after_idle(self.choose_stage_color)
+                    return
+
+    def ring_drag(self, event):
+        if not self.dragging_ring_handle: return
+        fraction = self.ring_fraction(event.x, event.y)
+        now = time.monotonic()
+        if not self.ring_trail or now - self.ring_trail[-1][1] > .018 or abs(fraction - self.ring_trail[-1][0]) > .004:
+            self.ring_trail.append((fraction, now))
+            self.ring_trail = self.ring_trail[-24:]
         target = fraction * sum(s["minutes"] for s in self.task["stages"]) * 60
         cursor = 0
         for i, stage in enumerate(self.task["stages"]):
@@ -237,6 +283,40 @@ class BellCat(tk.Tk):
                 self.stage_index = i; self.seconds_left = max(1, int(duration - (target - cursor))); break
             cursor += duration
         self.draw_ring()
+
+    def ring_release(self, _event):
+        self.dragging_ring_handle = False
+        self.animate_ring_trail()
+
+    def animate_ring_trail(self):
+        if self.trail_animation is not None:
+            try: self.after_cancel(self.trail_animation)
+            except Exception: pass
+        self.draw_ring()
+        if self.ring_trail:
+            self.trail_animation = self.after(16, self.animate_ring_trail)
+        else:
+            self.trail_animation = None
+
+    def choose_stage_color(self):
+        label = COLOR_LABELS.get(self.data["language"], "Stage color")
+        chosen = colorchooser.askcolor(color=self.stage["color"], title=f'{self.stage["name"]} · {label}', parent=self)[1]
+        if chosen:
+            self.stage["color"] = chosen.upper()
+            save_config(self.data)
+            self.draw_ring()
+
+    @staticmethod
+    def blend_color(foreground, background, amount):
+        def rgb(value):
+            value = value.lstrip("#")
+            return tuple(int(value[i:i+2], 16) for i in (0, 2, 4))
+        try:
+            fg, bg = rgb(foreground), rgb(background)
+            mixed = tuple(round(bg[i] + (fg[i] - bg[i]) * amount) for i in range(3))
+            return "#%02X%02X%02X" % mixed
+        except Exception:
+            return foreground
 
     def select_task(self, _event=None):
         self.data["selected_task"] = [t["name"] for t in self.data["tasks"]].index(self.task_var.get())
