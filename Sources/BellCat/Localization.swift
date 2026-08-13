@@ -46,7 +46,7 @@ enum LKey {
     case notification, alarm, onTime, advanceDays, advanceHours, advanceMinutes, eventNotificationBody
     case timer, reminders, focusSubtitle, reminderSubtitle, feature, settings, focusing, relax, reset
     case pause, start, completedRounds, custom, language
-    case reminderItems, newReminder, noReminders, reminderExample, reminderDetail, expired
+    case reminderItems, newReminder, quickAddReminder, addReminderNow, reminderTime, noReminders, reminderExample, reminderDetail, expired
     case minutes, hours, days, airportDefault, reminderName, eventDateTime, advance, unit, alertMethod
     case willRemind, alarmDescription, notificationDescription, futureTimeError, cancel, saveReminder
     case taskName, workMinutes, restMinutes, endSound, sound, customFile, chooseAudio, removeCustom, previewSixSeconds, stopPreview, done
@@ -79,7 +79,7 @@ enum L10n {
             .focusSubtitle: "给专注留一段安静的时间", .reminderSubtitle: "重要的事，提前准备", .feature: "功能",
             .settings: "设置", .focusing: "专注中", .relax: "放松一下", .reset: "重置", .pause: "暂停",
             .start: "开始", .completedRounds: "已完成 %d 轮", .custom: "自定义", .language: "语言",
-            .reminderItems: "提醒事项", .newReminder: "新建提醒", .noReminders: "还没有提醒",
+            .reminderItems: "提醒事项", .newReminder: "新建提醒", .quickAddReminder: "一键添加提醒", .addReminderNow: "添加提醒", .reminderTime: "提醒时间", .noReminders: "还没有提醒",
             .reminderExample: "例如：9 月 18 日乘飞机，提前 3 小时到浦东机场",
             .reminderDetail: "%@提醒 · %@", .expired: "已过期", .minutes: "分钟", .hours: "小时", .days: "天",
             .airportDefault: "到浦东机场", .reminderName: "提醒名称", .eventDateTime: "事件日期与时间",
@@ -105,7 +105,7 @@ enum L10n {
             .focusSubtitle: "Make quiet time for focus", .reminderSubtitle: "Prepare early for what matters", .feature: "Feature",
             .settings: "Settings", .focusing: "Focusing", .relax: "Take it easy", .reset: "Reset", .pause: "Pause",
             .start: "Start", .completedRounds: "%d round(s) completed", .custom: "Custom", .language: "Language",
-            .reminderItems: "Reminders", .newReminder: "New Reminder", .noReminders: "No reminders yet",
+            .reminderItems: "Reminders", .newReminder: "New Reminder", .quickAddReminder: "Quick Add Reminder", .addReminderNow: "Add Reminder", .reminderTime: "Reminder time", .noReminders: "No reminders yet",
             .reminderExample: "Example: a Sep 18 flight, arrive at Pudong Airport 3 hours early",
             .reminderDetail: "%@ · %@", .expired: "Expired", .minutes: "Minutes", .hours: "Hours", .days: "Days",
             .airportDefault: "Arrive at Pudong Airport", .reminderName: "Reminder name", .eventDateTime: "Event date and time",
@@ -131,7 +131,7 @@ enum L10n {
             .focusSubtitle: "集中するための静かな時間", .reminderSubtitle: "大切な予定に早めの準備を", .feature: "機能",
             .settings: "設定", .focusing: "集中中", .relax: "リラックス", .reset: "リセット", .pause: "一時停止",
             .start: "開始", .completedRounds: "%dセット完了", .custom: "カスタム", .language: "言語",
-            .reminderItems: "リマインダー", .newReminder: "新規リマインダー", .noReminders: "リマインダーはありません",
+            .reminderItems: "リマインダー", .newReminder: "新規リマインダー", .quickAddReminder: "かんたんリマインダー", .addReminderNow: "リマインダーを追加", .reminderTime: "通知時刻", .noReminders: "リマインダーはありません",
             .reminderExample: "例：9月18日のフライト、3時間前に浦東空港へ",
             .reminderDetail: "%@ · %@", .expired: "期限切れ", .minutes: "分", .hours: "時間", .days: "日",
             .airportDefault: "浦東空港に到着", .reminderName: "リマインダー名", .eventDateTime: "予定日時",
@@ -156,7 +156,7 @@ enum L10n {
             .focusSubtitle: "Reserva un momento tranquilo para concentrarte", .reminderSubtitle: "Prepárate con tiempo para lo importante", .feature: "Función",
             .settings: "Ajustes", .focusing: "Concentrándote", .relax: "Relájate", .reset: "Reiniciar", .pause: "Pausar",
             .start: "Iniciar", .completedRounds: "%d ronda(s) completada(s)", .custom: "Personalizado", .language: "Idioma",
-            .reminderItems: "Recordatorios", .newReminder: "Nuevo recordatorio", .noReminders: "Aún no hay recordatorios",
+            .reminderItems: "Recordatorios", .newReminder: "Nuevo recordatorio", .quickAddReminder: "Añadir recordatorio rápido", .addReminderNow: "Añadir recordatorio", .reminderTime: "Hora del recordatorio", .noReminders: "Aún no hay recordatorios",
             .reminderExample: "Ejemplo: vuelo el 18 de septiembre; llegar a Pudong 3 horas antes",
             .reminderDetail: "%@ · %@", .expired: "Vencido", .minutes: "Minutos", .hours: "Horas", .days: "Días",
             .airportDefault: "Llegar al aeropuerto de Pudong", .reminderName: "Nombre", .eventDateTime: "Fecha y hora del evento",
@@ -181,7 +181,7 @@ enum L10n {
             .focusSubtitle: "Un moment calme pour se concentrer", .reminderSubtitle: "Préparez à l'avance ce qui compte", .feature: "Fonction",
             .settings: "Réglages", .focusing: "Concentration", .relax: "Détendez-vous", .reset: "Réinitialiser", .pause: "Pause",
             .start: "Démarrer", .completedRounds: "%d cycle(s) terminé(s)", .custom: "Personnalisé", .language: "Langue",
-            .reminderItems: "Rappels", .newReminder: "Nouveau rappel", .noReminders: "Aucun rappel",
+            .reminderItems: "Rappels", .newReminder: "Nouveau rappel", .quickAddReminder: "Ajouter un rappel rapide", .addReminderNow: "Ajouter le rappel", .reminderTime: "Heure du rappel", .noReminders: "Aucun rappel",
             .reminderExample: "Exemple : vol le 18 septembre, arriver à Pudong 3 heures avant",
             .reminderDetail: "%@ · %@", .expired: "Expiré", .minutes: "Minutes", .hours: "Heures", .days: "Jours",
             .airportDefault: "Arriver à l'aéroport de Pudong", .reminderName: "Nom du rappel", .eventDateTime: "Date et heure",
@@ -206,7 +206,7 @@ enum L10n {
             .focusSubtitle: "وقت هادئ للتركيز", .reminderSubtitle: "استعد مبكرًا لما يهم", .feature: "الميزة",
             .settings: "الإعدادات", .focusing: "جارٍ التركيز", .relax: "استرخِ", .reset: "إعادة ضبط", .pause: "إيقاف مؤقت",
             .start: "ابدأ", .completedRounds: "اكتملت %d جولة", .custom: "مخصص", .language: "اللغة",
-            .reminderItems: "التذكيرات", .newReminder: "تذكير جديد", .noReminders: "لا توجد تذكيرات",
+            .reminderItems: "التذكيرات", .newReminder: "تذكير جديد", .quickAddReminder: "إضافة تذكير سريع", .addReminderNow: "إضافة التذكير", .reminderTime: "وقت التذكير", .noReminders: "لا توجد تذكيرات",
             .reminderExample: "مثال: رحلة في 18 سبتمبر، الوصول إلى مطار بودونغ قبل 3 ساعات",
             .reminderDetail: "%@ · %@", .expired: "منتهي", .minutes: "دقائق", .hours: "ساعات", .days: "أيام",
             .airportDefault: "الوصول إلى مطار بودونغ", .reminderName: "اسم التذكير", .eventDateTime: "تاريخ ووقت الحدث",
@@ -231,7 +231,7 @@ enum L10n {
             .focusSubtitle: "집중을 위한 조용한 시간", .reminderSubtitle: "중요한 일을 미리 준비하세요", .feature: "기능",
             .settings: "설정", .focusing: "집중 중", .relax: "휴식하세요", .reset: "초기화", .pause: "일시 정지",
             .start: "시작", .completedRounds: "%d회 완료", .custom: "사용자 지정", .language: "언어",
-            .reminderItems: "알림 목록", .newReminder: "새 알림", .noReminders: "알림이 없습니다",
+            .reminderItems: "알림 목록", .newReminder: "새 알림", .quickAddReminder: "빠른 알림 추가", .addReminderNow: "알림 추가", .reminderTime: "알림 시간", .noReminders: "알림이 없습니다",
             .reminderExample: "예: 9월 18일 항공편, 3시간 전 푸둥 공항 도착",
             .reminderDetail: "%@ · %@", .expired: "만료됨", .minutes: "분", .hours: "시간", .days: "일",
             .airportDefault: "푸둥 공항 도착", .reminderName: "알림 이름", .eventDateTime: "일정 날짜 및 시간",

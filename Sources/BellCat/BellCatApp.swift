@@ -1023,39 +1023,103 @@ private struct RingTrailPoint {
 struct RemindersDashboard: View {
     @EnvironmentObject private var store: ReminderStore
     @EnvironmentObject private var language: LanguageManager
+    @State private var showingQuickAdd = false
 
     var body: some View {
-        Group {
-            if store.items.isEmpty {
-                VStack(spacing: 12) {
-                    Spacer()
-                    Image(systemName: "bell.and.waves.left.and.right.fill").font(.system(size: 44)).foregroundStyle(Color(hex: "66686C"))
-                    Text(L10n.text(.noReminders, language.selected)).font(.headline)
-                    Text(L10n.text(.reminderExample, language.selected)).foregroundStyle(.secondary)
-                    Spacer()
+        VStack(spacing: 12) {
+            HStack {
+                Spacer()
+                Button { showingQuickAdd = true } label: {
+                    Label(L10n.text(.quickAddReminder, language.selected), systemImage: "bolt.badge.plus.fill")
                 }
-            } else {
-                List {
-                    ForEach(store.items) { item in
-                        HStack(spacing: 14) {
-                            Image(systemName: item.style == .alarm ? "alarm.fill" : "bell.fill")
-                                .font(.title2).foregroundStyle(Color(hex: "66686C"))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(item.title).font(.headline)
-                                Text(L10n.date(item.eventDate, language.selected))
-                                Text(item.advanceText(language: language.selected)).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if item.fireDate < Date() { Text(L10n.text(.expired, language.selected)).foregroundStyle(.secondary) }
-                            else {
-                                Toggle("", isOn: Binding(get: { item.isEnabled }, set: { store.setEnabled($0, for: item) }))
-                                    .labelsHidden()
-                            }
-                        }.padding(.vertical, 6)
-                    }.onDelete(perform: store.delete)
-                }.scrollContentBackground(.hidden)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .tint(Color(hex: "3C3D40"))
             }
-        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Group {
+                if store.items.isEmpty {
+                    VStack(spacing: 12) {
+                        Spacer()
+                        Image(systemName: "bell.and.waves.left.and.right.fill").font(.system(size: 44)).foregroundStyle(Color(hex: "66686C"))
+                        Text(L10n.text(.noReminders, language.selected)).font(.headline)
+                        Text(L10n.text(.reminderExample, language.selected)).foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                } else {
+                    List {
+                        ForEach(store.items) { item in
+                            HStack(spacing: 14) {
+                                Image(systemName: item.style == .alarm ? "alarm.fill" : "bell.fill")
+                                    .font(.title2).foregroundStyle(Color(hex: "66686C"))
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.title).font(.headline)
+                                    Text(L10n.date(item.eventDate, language.selected))
+                                    Text(item.advanceText(language: language.selected)).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if item.fireDate < Date() { Text(L10n.text(.expired, language.selected)).foregroundStyle(.secondary) }
+                                else {
+                                    Toggle("", isOn: Binding(get: { item.isEnabled }, set: { store.setEnabled($0, for: item) }))
+                                        .labelsHidden()
+                                }
+                            }
+                            .padding(.vertical, 6)
+                        }
+                        .onDelete(perform: store.delete)
+                    }
+                    .scrollContentBackground(.hidden)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(isPresented: $showingQuickAdd) { QuickReminderView().frame(minWidth: 460) }
+    }
+}
+
+struct QuickReminderView: View {
+    @EnvironmentObject private var store: ReminderStore
+    @EnvironmentObject private var language: LanguageManager
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var reminderDate = Date().addingTimeInterval(3600)
+    @State private var style: ReminderItem.AlertStyle = .notification
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Image(systemName: "bolt.badge.plus.fill")
+                    .font(.title2).foregroundStyle(Color(hex: "56585C"))
+                Text(L10n.text(.quickAddReminder, language.selected)).font(.title2.bold())
+            }
+            TextField(L10n.text(.reminderName, language.selected), text: $title)
+                .textFieldStyle(.roundedBorder)
+            DatePicker(L10n.text(.reminderTime, language.selected), selection: $reminderDate)
+            Picker(L10n.text(.alertMethod, language.selected), selection: $style) {
+                Label(L10n.text(.notification, language.selected), systemImage: "bell.fill")
+                    .tag(ReminderItem.AlertStyle.notification)
+                Label(L10n.text(.alarm, language.selected), systemImage: "alarm.fill")
+                    .tag(ReminderItem.AlertStyle.alarm)
+            }
+            .pickerStyle(.segmented)
+            if reminderDate <= Date() {
+                Text(L10n.text(.futureTimeError, language.selected)).font(.caption).foregroundStyle(.red)
+            }
+            HStack {
+                Spacer()
+                Button(L10n.text(.cancel, language.selected)) { dismiss() }
+                Button(L10n.text(.addReminderNow, language.selected)) {
+                    store.add(ReminderItem(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                                           eventDate: reminderDate, advanceMinutes: 0, style: style))
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(hex: "3C3D40"))
+                .keyboardShortcut(.defaultAction)
+                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || reminderDate <= Date())
+            }
+        }
+        .padding(28)
     }
 }
 

@@ -19,7 +19,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.3.2"
+VERSION = "2.4.0"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 
@@ -71,6 +71,15 @@ EASTER_EGG_MESSAGES = {
     "Français": (["Pattes de concentration activées 🐾", "Un petit coup de pouce félin !", "Ding ! Une étoile de concentration ✦"], "Miaou ! Vous avez trouvé le secret de BellCat ✦"),
     "العربية": (["تم تفعيل مخالب التركيز 🐾", "دفعة قطط صغيرة لك!", "رنّة! نجمة تركيز لك ✦"], "مياو! لقد اكتشفت سر BellCat ✦"),
     "한국어": (["집중 발바닥 활성화 🐾", "고양이 기운을 받아요!", "딩! 집중 별 하나를 드려요 ✦"], "야옹! BellCat의 비밀을 찾았어요 ✦")
+}
+QUICK_REMINDER_LABELS = {
+    "中文": ("⚡ 一键添加提醒", "详细提醒", "提醒事项", "提醒时间 YYYY-MM-DD HH:MM", "添加提醒"),
+    "English": ("⚡ Quick Add Reminder", "Detailed reminder", "Reminder", "Time YYYY-MM-DD HH:MM", "Add Reminder"),
+    "日本語": ("⚡ かんたんリマインダー", "詳細設定", "リマインダー", "時刻 YYYY-MM-DD HH:MM", "追加"),
+    "Español": ("⚡ Añadir recordatorio rápido", "Recordatorio detallado", "Recordatorio", "Hora YYYY-MM-DD HH:MM", "Añadir"),
+    "Français": ("⚡ Ajouter un rappel rapide", "Rappel détaillé", "Rappel", "Heure YYYY-MM-DD HH:MM", "Ajouter"),
+    "العربية": ("⚡ إضافة تذكير سريع", "تذكير مفصل", "التذكير", "الوقت YYYY-MM-DD HH:MM", "إضافة"),
+    "한국어": ("⚡ 빠른 알림 추가", "상세 알림", "알림 내용", "시간 YYYY-MM-DD HH:MM", "추가")
 }
 
 
@@ -456,13 +465,42 @@ class BellCat(tk.Tk):
 
     def show_reminders(self):
         self.clear_content()
-        ttk.Button(self.content, text=f"＋ {self.lang['new']}", command=self.new_reminder).pack(anchor="ne", pady=6)
+        quick_label, detailed_label, _, _, _ = QUICK_REMINDER_LABELS.get(self.data["language"], QUICK_REMINDER_LABELS["English"])
+        actions = ttk.Frame(self.content); actions.pack(fill="x", pady=6)
+        ttk.Button(actions, text=quick_label, command=self.quick_reminder).pack(side="right", padx=(6, 0))
+        ttk.Button(actions, text=detailed_label, command=self.new_reminder).pack(side="right")
         if not self.data["reminders"]: ttk.Label(self.content, text=self.lang["no_reminders"], font=("TkDefaultFont", 16)).pack(expand=True); return
         for reminder in sorted(self.data["reminders"], key=lambda r: r["fire"]):
             frame = ttk.Frame(self.content); frame.pack(fill="x", pady=7)
             ttk.Label(frame, text="⏰" if reminder["style"] == "alarm" else "🔔", font=("TkDefaultFont", 18)).pack(side="left")
             ttk.Label(frame, text=f"{reminder['title']}\n{reminder['event'].replace('T', ' ')}", font=("TkDefaultFont", 12)).pack(side="left", padx=10)
             ttk.Button(frame, text="×", command=lambda r=reminder: self.delete_reminder(r)).pack(side="right")
+
+    def quick_reminder(self):
+        window = tk.Toplevel(self); window.title(APP_NAME); window.geometry("440x280"); window.transient(self); window.grab_set()
+        quick_label, _, item_label, time_label, add_label = QUICK_REMINDER_LABELS.get(self.data["language"], QUICK_REMINDER_LABELS["English"])
+        ttk.Label(window, text=quick_label, font=("TkDefaultFont", 16, "bold")).pack(anchor="w", padx=24, pady=(22, 14))
+        form = ttk.Frame(window); form.pack(fill="x", padx=24)
+        ttk.Label(form, text=item_label).grid(row=0, column=0, sticky="w", pady=6)
+        title = ttk.Entry(form, width=34); title.grid(row=0, column=1, sticky="ew", padx=(12, 0), pady=6); title.focus_set()
+        ttk.Label(form, text=time_label).grid(row=1, column=0, sticky="w", pady=6)
+        when = ttk.Entry(form, width=34)
+        when.insert(0, (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M"))
+        when.grid(row=1, column=1, sticky="ew", padx=(12, 0), pady=6)
+        style = tk.StringVar(value="notification")
+        choices = ttk.Frame(form); choices.grid(row=2, column=1, sticky="w", padx=(12, 0), pady=8)
+        ttk.Radiobutton(choices, text=self.lang["notification"], variable=style, value="notification").pack(side="left", padx=(0, 14))
+        ttk.Radiobutton(choices, text=self.lang["alarm"], variable=style, value="alarm").pack(side="left")
+        form.columnconfigure(1, weight=1)
+        def save_quick(_event=None):
+            name = title.get().strip()
+            try: event = datetime.strptime(when.get().strip(), "%Y-%m-%d %H:%M")
+            except Exception: messagebox.showerror(APP_NAME, time_label, parent=window); return
+            if not name or event <= datetime.now(): messagebox.showerror(APP_NAME, self.lang["futureTimeError"] if "futureTimeError" in self.lang else time_label, parent=window); return
+            self.data["reminders"].append({"title": name, "event": event.isoformat(timespec="minutes"), "fire": event.isoformat(timespec="seconds"), "style": style.get(), "fired": False})
+            save_config(self.data); window.destroy(); self.show_reminders()
+        ttk.Button(window, text=add_label, command=save_quick).pack(anchor="e", padx=24, pady=20)
+        window.bind("<Return>", save_quick)
 
     def new_reminder(self):
         title = simpledialog.askstring(self.lang["reminders"], self.lang["title"], parent=self)
