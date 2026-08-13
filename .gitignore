@@ -1,0 +1,14 @@
+.DS_Store
+.build/
+.swiftpm/
+BellCat.app/
+BellCat-*.zip
+*.dSYM/
+xcuserdata/
+work/
+__pycache__/
+*.pyc
+dist/
+build/
+*.spec
+BellCat-*.dmg
