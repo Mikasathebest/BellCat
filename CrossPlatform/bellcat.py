@@ -20,7 +20,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.5.1"
+VERSION = "2.5.2"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -152,7 +152,7 @@ class BellCat(tk.Tk):
         self.fg = "#F1F1EF" if dark else "#292A2D"
         self.card = "#303135" if dark else "#E1E1DF"
         self.configure(bg=self.bg)
-        self.attributes("-alpha", max(.2, min(1.0, float(self.data.get("app_opacity", 1.0)))))
+        self.attributes("-alpha", 1.0)
         style = ttk.Style(self)
         style.theme_use("clam")
         style.configure("TFrame", background=self.bg)
@@ -613,18 +613,17 @@ class BellCat(tk.Tk):
         language = ttk.Combobox(win, values=list(LANGUAGES), state="readonly"); language.set(self.data["language"]); language.pack()
         ttk.Label(win, text=self.lang["theme"]).pack(pady=(18,4))
         theme = ttk.Combobox(win, values=["light", "dark"], state="readonly"); theme.set(self.data["theme"]); theme.pack()
-        opacity_labels = {"中文": "APP 透明度", "English": "App opacity", "日本語": "アプリの透明度", "Español": "Opacidad de la app", "Français": "Opacité de l’app", "العربية": "شفافية التطبيق", "한국어": "앱 투명도"}
-        ttk.Label(win, text=opacity_labels.get(self.data["language"], "App opacity")).pack(pady=(18, 4))
+        opacity_labels = {"中文": "背景不透明度", "English": "Background opacity", "日本語": "背景の不透明度", "Español": "Opacidad del fondo", "Français": "Opacité du fond", "العربية": "عتامة الخلفية", "한국어": "배경 불투명도"}
+        ttk.Label(win, text=opacity_labels.get(self.data["language"], "Background opacity")).pack(pady=(18, 4))
         opacity = tk.DoubleVar(value=float(self.data.get("app_opacity", 1.0)))
         opacity_value = ttk.Label(win, text=f"{round(opacity.get() * 100)}%")
         opacity_value.pack()
         def update_opacity(value):
-            amount = max(.2, min(1.0, float(value)))
+            amount = max(0, min(1.0, float(value)))
             opacity_value.configure(text=f"{round(amount * 100)}%")
-            self.attributes("-alpha", amount)
             self.data["app_opacity"] = amount
             save_config(self.data)
-        ttk.Scale(win, from_=.2, to=1.0, variable=opacity, command=update_opacity).pack(fill="x", padx=52)
+        ttk.Scale(win, from_=0, to=1.0, variable=opacity, command=update_opacity).pack(fill="x", padx=52)
         end_label, preview_label, _ = END_SOUND_LABELS.get(self.data["language"], END_SOUND_LABELS["English"])
         ttk.Label(win, text=end_label).pack(pady=(18,4))
         sound_row = ttk.Frame(win); sound_row.pack()

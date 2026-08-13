@@ -93,7 +93,7 @@ enum L10n {
             .addStage: "添加阶段", .stageName: "阶段名称", .other: "其他", .savedTasks: "已保存任务",
             .theme: "主题", .appearance: "外观", .systemMode: "跟随系统", .lightMode: "浅色", .darkMode: "深色",
             .backgroundImage: "背景图片", .chooseBackground: "选择背景图片…", .removeBackground: "移除背景",
-            .backgroundOpacity: "APP 透明度：%d%%", .clickDragHint: "点击阶段设置颜色，拖动圆点调整时间", .stageColor: "阶段颜色", .customColor: "自定义颜色", .add: "添加", .delete: "删除", .quoteBy: "— %@"
+            .backgroundOpacity: "背景不透明度：%d%%", .clickDragHint: "点击阶段设置颜色，拖动圆点调整时间", .stageColor: "阶段颜色", .customColor: "自定义颜色", .add: "添加", .delete: "删除", .quoteBy: "— %@"
             , .whiteNoise: "白噪声", .ocean: "海浪", .wind: "风声", .rain: "雨声", .rainforest: "热带雨林鸟鸣", .chooseMusic: "选择音乐…", .customMusic: "我的音乐"
         ],
         .en: [
@@ -119,7 +119,7 @@ enum L10n {
             .addStage: "Add Stage", .stageName: "Stage name", .other: "Other", .savedTasks: "Saved Tasks",
             .theme: "Theme", .appearance: "Appearance", .systemMode: "System", .lightMode: "Light", .darkMode: "Dark",
             .backgroundImage: "Background Image", .chooseBackground: "Choose Background…", .removeBackground: "Remove Background",
-            .backgroundOpacity: "App opacity: %d%%", .clickDragHint: "Click a stage for color; drag the dot to seek", .stageColor: "Stage color", .customColor: "Custom color", .add: "Add", .delete: "Delete", .quoteBy: "— %@"
+            .backgroundOpacity: "Background opacity: %d%%", .clickDragHint: "Click a stage for color; drag the dot to seek", .stageColor: "Stage color", .customColor: "Custom color", .add: "Add", .delete: "Delete", .quoteBy: "— %@"
             , .whiteNoise: "White Noise", .ocean: "Ocean Waves", .wind: "Wind", .rain: "Rain", .rainforest: "Rainforest Birds", .chooseMusic: "Choose Music…", .customMusic: "My Music"
         ],
         .ja: [
@@ -145,7 +145,7 @@ enum L10n {
             .addStage: "ステージを追加", .stageName: "ステージ名", .other: "その他", .savedTasks: "保存済みタスク",
             .theme: "テーマ", .appearance: "外観", .systemMode: "システム", .lightMode: "ライト", .darkMode: "ダーク",
             .backgroundImage: "背景画像", .chooseBackground: "背景を選択…", .removeBackground: "背景を削除",
-            .backgroundOpacity: "アプリの透明度：%d%%", .clickDragHint: "ステージで色を設定、点をドラッグして時間を調整", .stageColor: "ステージ色", .customColor: "カスタム色", .add: "追加", .delete: "削除", .quoteBy: "— %@"
+            .backgroundOpacity: "背景の不透明度：%d%%", .clickDragHint: "ステージで色を設定、点をドラッグして時間を調整", .stageColor: "ステージ色", .customColor: "カスタム色", .add: "追加", .delete: "削除", .quoteBy: "— %@"
         ],
         .es: [
             .work: "Trabajo", .rest: "Descanso", .focusWork: "Trabajo enfocado", .takeBreak: "Tómate un descanso",
@@ -170,7 +170,7 @@ enum L10n {
             .addStage: "Añadir etapa", .stageName: "Nombre de etapa", .other: "Otro", .savedTasks: "Tareas guardadas",
             .theme: "Tema", .appearance: "Apariencia", .systemMode: "Sistema", .lightMode: "Claro", .darkMode: "Oscuro",
             .backgroundImage: "Imagen de fondo", .chooseBackground: "Elegir fondo…", .removeBackground: "Quitar fondo",
-            .backgroundOpacity: "Opacidad de la app: %d%%", .clickDragHint: "Pulsa una etapa para el color; arrastra el punto para ajustar", .stageColor: "Color de etapa", .customColor: "Color personalizado", .add: "Añadir", .delete: "Eliminar", .quoteBy: "— %@"
+            .backgroundOpacity: "Opacidad del fondo: %d%%", .clickDragHint: "Pulsa una etapa para el color; arrastra el punto para ajustar", .stageColor: "Color de etapa", .customColor: "Color personalizado", .add: "Añadir", .delete: "Eliminar", .quoteBy: "— %@"
         ],
         .fr: [
             .work: "Travail", .rest: "Pause", .focusWork: "Travail concentré", .takeBreak: "Faites une pause",
@@ -195,7 +195,7 @@ enum L10n {
             .addStage: "Ajouter une étape", .stageName: "Nom de l’étape", .other: "Autre", .savedTasks: "Tâches enregistrées",
             .theme: "Thème", .appearance: "Apparence", .systemMode: "Système", .lightMode: "Clair", .darkMode: "Sombre",
             .backgroundImage: "Image d’arrière-plan", .chooseBackground: "Choisir un arrière-plan…", .removeBackground: "Supprimer l’arrière-plan",
-            .backgroundOpacity: "Opacité de l’app : %d%%", .clickDragHint: "Cliquez sur une étape pour sa couleur ; glissez le point", .stageColor: "Couleur de l’étape", .customColor: "Couleur personnalisée", .add: "Ajouter", .delete: "Supprimer", .quoteBy: "— %@"
+            .backgroundOpacity: "Opacité du fond : %d%%", .clickDragHint: "Cliquez sur une étape pour sa couleur ; glissez le point", .stageColor: "Couleur de l’étape", .customColor: "Couleur personnalisée", .add: "Ajouter", .delete: "Supprimer", .quoteBy: "— %@"
         ],
         .ar: [
             .work: "عمل", .rest: "استراحة", .focusWork: "عمل بتركيز", .takeBreak: "خذ استراحة",
@@ -220,7 +220,7 @@ enum L10n {
             .addStage: "إضافة مرحلة", .stageName: "اسم المرحلة", .other: "أخرى", .savedTasks: "المهام المحفوظة",
             .theme: "السمة", .appearance: "المظهر", .systemMode: "النظام", .lightMode: "فاتح", .darkMode: "داكن",
             .backgroundImage: "صورة الخلفية", .chooseBackground: "اختيار خلفية…", .removeBackground: "إزالة الخلفية",
-            .backgroundOpacity: "شفافية التطبيق: %d%%", .clickDragHint: "انقر على مرحلة للون، واسحب النقطة لضبط الوقت", .stageColor: "لون المرحلة", .customColor: "لون مخصص", .add: "إضافة", .delete: "حذف", .quoteBy: "— %@"
+            .backgroundOpacity: "عتامة الخلفية: %d%%", .clickDragHint: "انقر على مرحلة للون، واسحب النقطة لضبط الوقت", .stageColor: "لون المرحلة", .customColor: "لون مخصص", .add: "إضافة", .delete: "حذف", .quoteBy: "— %@"
         ],
         .ko: [
             .work: "작업", .rest: "휴식", .focusWork: "집중 작업", .takeBreak: "잠시 쉬기",
@@ -245,7 +245,7 @@ enum L10n {
             .addStage: "단계 추가", .stageName: "단계 이름", .other: "기타", .savedTasks: "저장된 작업",
             .theme: "테마", .appearance: "화면 모드", .systemMode: "시스템", .lightMode: "라이트", .darkMode: "다크",
             .backgroundImage: "배경 이미지", .chooseBackground: "배경 선택…", .removeBackground: "배경 제거",
-            .backgroundOpacity: "앱 투명도: %d%%", .clickDragHint: "단계를 눌러 색상을 설정하고 점을 끌어 시간을 조절하세요", .stageColor: "단계 색상", .customColor: "사용자 색상", .add: "추가", .delete: "삭제", .quoteBy: "— %@"
+            .backgroundOpacity: "배경 불투명도: %d%%", .clickDragHint: "단계를 눌러 색상을 설정하고 점을 끌어 시간을 조절하세요", .stageColor: "단계 색상", .customColor: "사용자 색상", .add: "추가", .delete: "삭제", .quoteBy: "— %@"
         ]
     ]
 }
