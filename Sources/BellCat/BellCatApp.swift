@@ -512,7 +512,7 @@ final class ThemeManager: ObservableObject {
     init() {
         appearance = Appearance(rawValue: UserDefaults.standard.string(forKey: appearanceKey) ?? "") ?? .system
         let savedOpacity = UserDefaults.standard.object(forKey: opacityKey) as? Double
-        backgroundOpacity = min(1, max(0, savedOpacity ?? 1))
+        backgroundOpacity = Self.snappedOpacity(savedOpacity ?? 1)
         loadBackground()
     }
     var preferredColorScheme: ColorScheme? {
@@ -523,8 +523,14 @@ final class ThemeManager: ObservableObject {
         UserDefaults.standard.set(value.rawValue, forKey: appearanceKey)
     }
     func setOpacity(_ value: Double) {
-        backgroundOpacity = min(1, max(0, value))
+        backgroundOpacity = Self.snappedOpacity(value)
         UserDefaults.standard.set(backgroundOpacity, forKey: opacityKey)
+    }
+    private static func snappedOpacity(_ value: Double) -> Double {
+        let clamped = min(1, max(0, value))
+        if clamped >= 0.99 { return 1 }
+        if clamped <= 0.01 { return 0 }
+        return clamped
     }
     func setBackground(_ url: URL) {
         do {
@@ -551,7 +557,10 @@ final class ThemeManager: ObservableObject {
     }
 }
 
-private struct TransparentWindowBackground: NSViewRepresentable {
+private struct WindowBackgroundController: NSViewRepresentable {
+    let opacity: Double
+    let isDark: Bool
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         apply(to: view)
@@ -563,9 +572,14 @@ private struct TransparentWindowBackground: NSViewRepresentable {
     private func apply(to view: NSView) {
         DispatchQueue.main.async {
             guard let window = view.window else { return }
-            window.isOpaque = false
-            window.backgroundColor = .clear
             window.alphaValue = 1
+            if opacity >= 1 {
+                window.isOpaque = true
+                window.backgroundColor = isDark ? .black : .white
+            } else {
+                window.isOpaque = false
+                window.backgroundColor = .clear
+            }
         }
     }
 }
@@ -609,6 +623,7 @@ struct QuoteItem {
 }
 
 struct RootView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var timer: FocusTimer
     @EnvironmentObject private var reminders: ReminderStore
     @EnvironmentObject private var language: LanguageManager
@@ -628,11 +643,7 @@ struct RootView: View {
     var body: some View {
         ZStack {
             ZStack {
-                LinearGradient(
-                    colors: [Color(nsColor: .windowBackgroundColor), Color.primary.opacity(0.035), Color(hex: "D8D5CE").opacity(0.14)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ).ignoresSafeArea()
+                solidThemeBackground.ignoresSafeArea()
                 if let url = theme.backgroundURL, let image = NSImage(contentsOf: url) {
                     Image(nsImage: image).resizable().scaledToFill().opacity(0.58).ignoresSafeArea().clipped()
                     Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
@@ -653,9 +664,21 @@ struct RootView: View {
             }
             .padding(24)
         }
-        .background(TransparentWindowBackground())
+        .background(WindowBackgroundController(opacity: theme.backgroundOpacity, isDark: usesDarkBackground))
         .sheet(isPresented: $showingAdd) { AddItemView(initialTab: section).frame(minWidth: 520) }
         .sheet(isPresented: $showingSettings) { SettingsView().frame(minWidth: 500) }
+    }
+
+    private var solidThemeBackground: Color {
+        usesDarkBackground ? .black : .white
+    }
+
+    private var usesDarkBackground: Bool {
+        switch theme.appearance {
+        case .dark: return true
+        case .light: return false
+        case .system: return colorScheme == .dark
+        }
     }
 
     private var header: some View {

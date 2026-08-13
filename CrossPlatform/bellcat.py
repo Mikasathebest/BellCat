@@ -20,7 +20,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.5.2"
+VERSION = "2.5.3"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -148,7 +148,7 @@ class BellCat(tk.Tk):
     def configure_ui(self):
         for child in self.winfo_children(): child.destroy()
         dark = self.data["theme"] == "dark"
-        self.bg = "#202124" if dark else "#F2F1EE"
+        self.bg = "#000000" if dark else "#FFFFFF"
         self.fg = "#F1F1EF" if dark else "#292A2D"
         self.card = "#303135" if dark else "#E1E1DF"
         self.configure(bg=self.bg)
@@ -620,6 +620,8 @@ class BellCat(tk.Tk):
         opacity_value.pack()
         def update_opacity(value):
             amount = max(0, min(1.0, float(value)))
+            if amount >= .99: amount = 1.0
+            elif amount <= .01: amount = 0.0
             opacity_value.configure(text=f"{round(amount * 100)}%")
             self.data["app_opacity"] = amount
             save_config(self.data)

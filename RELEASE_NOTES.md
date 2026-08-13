@@ -1,10 +1,12 @@
-# BellCat 2.5.2
+# BellCat 2.5.3
 
 This patch corrects background-opacity behavior and keeps stage completion explicit across macOS, Windows, and Linux.
 
 ## What’s new
 
 - Fixed the opacity control: it now affects only the app background, never text, buttons, the timer ring, or the cat head.
+- Removed the residual gray/translucent gradient: light mode now uses true `#FFFFFF`, and dark mode uses true `#000000`.
+- Slider values within 1% of either endpoint snap to exact 0% or 100%.
 - `100%` is the normal solid BellCat theme; `0%` makes the macOS window background transparent while UI controls remain fully legible.
 - Renamed the setting to **Background opacity** to make the percentage direction unambiguous.
 - The 6-second end-sound preview now loops short system sounds and stops precisely after six seconds.
@@ -21,8 +23,8 @@ This patch corrects background-opacity behavior and keeps stage completion expli
 
 ## Downloads
 
-- macOS Apple Silicon: `BellCat-2.5.2-macOS-arm64.dmg` or ZIP
-- Windows x64 installer: `BellCat-2.5.2-Windows-x64-Setup.exe`
+- macOS Apple Silicon: `BellCat-2.5.3-macOS-arm64.dmg` or ZIP
+- Windows x64 installer: `BellCat-2.5.3-Windows-x64-Setup.exe`
 - Linux x64: `BellCat-Linux-x64.tar.gz`
 
 macOS builds are ad-hoc signed. If Gatekeeper blocks first launch, Control-click BellCat and choose **Open**.
