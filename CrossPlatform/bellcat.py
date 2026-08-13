@@ -20,7 +20,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.5.4"
+VERSION = "2.5.5"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -59,7 +59,7 @@ PRESET_TASKS = [
     {"name": "课程学习", "stages": [{"name": "Study", "minutes": 40, "color": "#4B4D51"}, {"name": "Break", "minutes": 10, "color": "#A7A9AD"}]},
 ]
 
-AMBIENCE_NAMES = {"ocean": "Ocean Waves", "wind": "Wind", "rain": "Rain", "rainforest": "Rainforest Birds", "custom": "My Music"}
+AMBIENCE_NAMES = {"ocean": "Ocean Waves", "wind": "Wind", "rain": "Rain", "rainforest": "Birdsong", "custom": "My Music"}
 COLOR_LABELS = {"中文": "阶段颜色", "English": "Stage color", "日本語": "ステージ色", "Español": "Color de etapa", "Français": "Couleur de l’étape", "العربية": "لون المرحلة", "한국어": "단계 색상"}
 END_SOUND_LABELS = {
     "中文": ("结束提示音", "试听 6 秒", "停止试听"), "English": ("End sound", "Preview 6s", "Stop preview"),
@@ -249,7 +249,7 @@ class BellCat(tk.Tk):
         self.clear_content()
         names = [task["name"] for task in self.data["tasks"]]
         self.task_var = tk.StringVar(value=self.task["name"])
-        task_row = ttk.Frame(self.content); task_row.pack(pady=4)
+        task_row = ttk.Frame(self.content); task_row.pack(fill="x", anchor="w", pady=4)
         picker_width = max(8, min(18, len(self.task["name"]) + 3))
         picker = ttk.Combobox(task_row, textvariable=self.task_var, values=names, state="readonly", width=picker_width)
         picker.pack(side="left"); picker.bind("<<ComboboxSelected>>", self.select_task)
@@ -278,7 +278,7 @@ class BellCat(tk.Tk):
         self.start_button.pack(side="left", padx=8)
         self.completed_label = ttk.Label(self.content, text=self.lang["completed"].format(n=self.data["completed"]))
         self.completed_label.pack(pady=6)
-        audio = ttk.Frame(self.content); audio.pack(pady=6)
+        audio = ttk.Frame(self.content); audio.pack(fill="x", anchor="w", pady=6)
         self.ambience_button = ttk.Button(audio, text="▶", width=3, command=self.toggle_ambience)
         self.ambience_button.pack(side="left", padx=5)
         self.ambience_var = tk.StringVar(value=AMBIENCE_NAMES.get(self.data.get("ambience", "ocean"), "Ocean Waves"))

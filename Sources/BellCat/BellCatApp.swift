@@ -908,6 +908,7 @@ struct TimerDashboard: View {
                 .buttonStyle(.borderedProminent).tint(Color(hex: "3C3D40"))
                 .help(L10n.text(.newItem, language.selected))
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 18) {
                 InteractiveRoutineRing(editingStageID: $colorStageID).frame(width: 340, height: 340)
@@ -959,6 +960,7 @@ struct TimerDashboard: View {
                 }.buttonStyle(.borderless).fixedSize()
             }
             .font(.subheadline)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(L10n.text(.completedRounds, language.selected, timer.completedRounds))
                 .font(.caption).foregroundStyle(.secondary)
