@@ -1,5 +1,5 @@
 #define MyAppName "BellCat"
-#define MyAppVersion "2.1.2"
+#define MyAppVersion "2.2.0"
 #define MyAppPublisher "BellCat contributors"
 #define MyAppExeName "BellCat.exe"
 
@@ -13,7 +13,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=.
-OutputBaseFilename=BellCat-2.1.2-Windows-x64-Setup
+OutputBaseFilename=BellCat-2.2.0-Windows-x64-Setup
 SetupIconFile=AppResources\BellCat.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2

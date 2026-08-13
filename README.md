@@ -1,54 +1,40 @@
+<p align="center">
+  <img src="AppResources/BellCatIcon-1024.png" width="180" alt="BellCat icon">
+</p>
+
 # BellCat
 
-English | [简体中文](README.zh-CN.md)
+English · [简体中文](README.zh-CN.md)
 
-BellCat is a playful multi-stage focus timer and reminder app for macOS, Windows, and Linux, featuring an American Shorthair alarm-clock mascot.
+BellCat is a calm multi-stage focus timer and reminder app for macOS, Windows, and Linux. It combines interactive routines, scheduled alerts, multilingual quotations, themes, and looping white noise in one focused desktop experience.
 
-![BellCat icon](AppResources/BellCatIcon-1024.png)
+## Install
 
-## Features
+### One-click download
 
-- Build routines with work, break, and custom stages, visualized as proportional segments on one interactive ring
-- Click a segment to change stages, or click and drag the progress dot to seek through the routine
-- Schedule future events with minute-, hour-, or day-based advance reminders
-- Choose a single notification or a three-alert alarm mode
-- Switch instantly between English, Chinese, Japanese, Spanish, French, Arabic, and Korean
-- Show quotations in the selected language with the original English text underneath
-- Use system, light, or dark appearance, plus a custom background image and opacity
-- Persist routines, reminders, language, and theme preferences locally
+Download the latest version from [GitHub Releases](../../releases/latest):
 
-## Download and install
+- **macOS Apple Silicon:** open the DMG and drag BellCat to Applications.
+- **Windows x64:** run `BellCat-*-Windows-x64-Setup.exe` for guided per-user installation.
+- **Linux x64:** extract the TAR.GZ and run `BellCat`.
 
-Visit the [latest release](../../releases/latest) and choose the package for your platform.
+The macOS build is ad-hoc signed but not Apple-notarized. If Gatekeeper blocks it, Control-click BellCat and choose **Open**.
 
-### macOS
+### Build from source
 
-Download `BellCat-2.1.2-macOS-arm64.dmg`, open it, and drag BellCat into Applications. The current package supports Apple Silicon and requires macOS 13 or later.
-
-The macOS package is ad-hoc signed but not yet notarized with an Apple Developer ID. If Gatekeeper blocks the first launch, Control-click BellCat in Finder, choose **Open**, and confirm.
-
-### Windows
-
-For the easiest installation, download `BellCat-2.1.2-Windows-x64-Setup.exe` and follow the installer. It adds a Start Menu shortcut, optionally creates a desktop shortcut, and installs per-user without administrator access.
-
-For a portable copy, download `BellCat-Windows-x64.zip`, extract it, and run `BellCat.exe`.
-
-### Linux
-
-Download `BellCat-Linux-x64.tar.gz`, extract it, and run `BellCat`. Desktop notifications require `libnotify` on the host system.
-
-## Build the macOS app from source
-
-Requirements: macOS 13 or later and Apple Swift 5.9 or later through Xcode Command Line Tools or Xcode.
+macOS requires Swift 5.9 or later:
 
 ```sh
 chmod +x build-app.sh
 ./build-app.sh
 ```
 
-You can also open `Package.swift` in Xcode and run the **My Mac** destination.
+Windows and Linux use the implementation in [`CrossPlatform`](CrossPlatform):
 
-The Windows and Linux implementation lives in [`CrossPlatform`](CrossPlatform).
+```sh
+python3 -m pip install pygame
+python3 CrossPlatform/bellcat.py
+```
 
 ## License
 

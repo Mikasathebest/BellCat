@@ -5,16 +5,21 @@ import json
 import math
 import os
 import platform
+import random
+import struct
 import subprocess
 import threading
 import time
 import tkinter as tk
+import wave
 from datetime import datetime, timedelta
 from pathlib import Path
 from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 
+import pygame
+
 APP_NAME = "BellCat"
-VERSION = "2.1.2"
+VERSION = "2.2.0"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 
@@ -41,15 +46,26 @@ DEFAULT = {
     "tasks": [{"name": "Focus", "stages": [
         {"name": "Work", "minutes": 25, "color": "#4B4D51"},
         {"name": "Break", "minutes": 5, "color": "#A7A9AD"}]}],
-    "selected_task": 0, "reminders": []
+    "selected_task": 0, "reminders": [], "ambience": "ocean"
 }
+
+PRESET_TASKS = [
+    {"name": "专注工作", "stages": [{"name": "Work", "minutes": 30, "color": "#4B4D51"}, {"name": "Break", "minutes": 3, "color": "#A7A9AD"}]},
+    {"name": "番茄时钟", "stages": [{"name": "Work", "minutes": 25, "color": "#4B4D51"}, {"name": "Break", "minutes": 5, "color": "#A7A9AD"}]},
+    {"name": "课程学习", "stages": [{"name": "Study", "minutes": 40, "color": "#4B4D51"}, {"name": "Break", "minutes": 10, "color": "#A7A9AD"}]},
+]
+
+AMBIENCE_NAMES = {"ocean": "Ocean Waves", "wind": "Wind", "rain": "Rain", "rainforest": "Rainforest Birds", "custom": "My Music"}
 
 
 def load_config():
     try:
-        return {**DEFAULT, **json.loads(CONFIG_FILE.read_text(encoding="utf-8"))}
+        data = {**DEFAULT, **json.loads(CONFIG_FILE.read_text(encoding="utf-8"))}
     except Exception:
-        return json.loads(json.dumps(DEFAULT))
+        data = json.loads(json.dumps(DEFAULT))
+    names = {task["name"] for task in data["tasks"]}
+    data["tasks"].extend(json.loads(json.dumps(task)) for task in PRESET_TASKS if task["name"] not in names)
+    return data
 
 
 def save_config(data):
@@ -69,6 +85,14 @@ class BellCat(tk.Tk):
         self.stage_index = 0
         self.seconds_left = self.stage["minutes"] * 60
         self.last_tick = time.monotonic()
+        self.ambience_playing = False
+        self.custom_music = None
+        try:
+            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
+            self.audio_ready = True
+        except Exception:
+            self.audio_ready = False
+        self.ensure_ambience_files()
         self.configure_ui()
         self.after(250, self.tick)
         self.after(1000, self.check_reminders)
@@ -127,7 +151,58 @@ class BellCat(tk.Tk):
         self.start_button.pack(side="left", padx=6)
         self.completed_label = ttk.Label(self.content, text=self.lang["completed"].format(n=self.data["completed"]))
         self.completed_label.pack(pady=6)
+        audio = ttk.Frame(self.content); audio.pack(pady=6)
+        self.ambience_button = ttk.Button(audio, text="▶", width=3, command=self.toggle_ambience)
+        self.ambience_button.pack(side="left", padx=5)
+        self.ambience_var = tk.StringVar(value=AMBIENCE_NAMES.get(self.data.get("ambience", "ocean"), "Ocean Waves"))
+        picker = ttk.Combobox(audio, textvariable=self.ambience_var, values=list(AMBIENCE_NAMES.values())[:-1] + (["My Music"] if self.custom_music else []), state="readonly", width=18)
+        picker.pack(side="left", padx=5); picker.bind("<<ComboboxSelected>>", self.change_ambience)
+        ttk.Button(audio, text="♫ +", command=self.choose_music).pack(side="left", padx=5)
         self.draw_ring()
+
+    def ensure_ambience_files(self):
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        for kind in ("ocean", "wind", "rain", "rainforest"):
+            path = CONFIG_DIR / f"{kind}.wav"
+            if path.exists(): continue
+            rate, duration = 22050, 10
+            previous = 0.0
+            frames = bytearray()
+            for frame in range(rate * duration):
+                t = frame / rate
+                white = random.uniform(-1, 1)
+                previous = previous * 0.985 + white * 0.015
+                if kind == "ocean": sample = (white * .10 + previous * .8) * (.3 + .7 * (math.sin(t * .42) + 1) / 2)
+                elif kind == "wind": sample = previous * (.35 + .25 * math.sin(t * .31))
+                elif kind == "rain": sample = white * .13 + (random.uniform(.2, .6) if random.random() > .989 else 0)
+                else: sample = previous * .2 + math.sin(t * 2 * math.pi * (1900 + 450 * math.sin(t * 3.1))) * max(0, math.sin(t * .73)) ** 18 * .16
+                value = max(-32767, min(32767, int(sample * 22000)))
+                frames.extend(struct.pack("<hh", value, int(value * .96)))
+            with wave.open(str(path), "wb") as output:
+                output.setnchannels(2); output.setsampwidth(2); output.setframerate(rate); output.writeframes(frames)
+
+    def toggle_ambience(self):
+        if not self.audio_ready: messagebox.showerror(APP_NAME, "Audio output is unavailable.", parent=self); return
+        if self.ambience_playing:
+            pygame.mixer.music.pause(); self.ambience_playing = False; self.ambience_button.configure(text="▶")
+        else:
+            kind = self.data.get("ambience", "ocean")
+            path = self.custom_music if kind == "custom" else CONFIG_DIR / f"{kind}.wav"
+            try:
+                pygame.mixer.music.load(str(path)); pygame.mixer.music.set_volume(.38); pygame.mixer.music.play(-1)
+                self.ambience_playing = True; self.ambience_button.configure(text="Ⅱ")
+            except Exception as error: messagebox.showerror(APP_NAME, str(error), parent=self)
+
+    def change_ambience(self, _event=None):
+        reverse = {value: key for key, value in AMBIENCE_NAMES.items()}
+        self.data["ambience"] = reverse[self.ambience_var.get()]; save_config(self.data)
+        was_playing = self.ambience_playing
+        if was_playing: pygame.mixer.music.stop(); self.ambience_playing = False; self.toggle_ambience()
+
+    def choose_music(self):
+        path = filedialog.askopenfilename(parent=self, filetypes=[("Audio", "*.mp3 *.wav *.ogg *.flac"), ("All files", "*.*")])
+        if not path: return
+        self.custom_music = Path(path); self.data["ambience"] = "custom"; save_config(self.data); self.show_timer()
 
     def draw_ring(self):
         if not hasattr(self, "canvas") or not self.canvas.winfo_exists(): return

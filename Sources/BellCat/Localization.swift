@@ -53,6 +53,7 @@ enum LKey {
     case newItem, routine, createTask, taskDuration, addStage, stageName, other, savedTasks
     case theme, appearance, systemMode, lightMode, darkMode, backgroundImage, chooseBackground
     case removeBackground, backgroundOpacity, clickDragHint, add, delete, quoteBy
+    case whiteNoise, ocean, wind, rain, rainforest, chooseMusic, customMusic
 }
 
 enum L10n {
@@ -93,6 +94,7 @@ enum L10n {
             .theme: "主题", .appearance: "外观", .systemMode: "跟随系统", .lightMode: "浅色", .darkMode: "深色",
             .backgroundImage: "背景图片", .chooseBackground: "选择背景图片…", .removeBackground: "移除背景",
             .backgroundOpacity: "背景透明度：%d%%", .clickDragHint: "点击阶段或拖动圆点", .add: "添加", .delete: "删除", .quoteBy: "— %@"
+            , .whiteNoise: "白噪声", .ocean: "海浪", .wind: "风声", .rain: "雨声", .rainforest: "热带雨林鸟鸣", .chooseMusic: "选择音乐…", .customMusic: "我的音乐"
         ],
         .en: [
             .work: "Work", .rest: "Break", .focusWork: "Focus work", .takeBreak: "Take a break",
@@ -118,6 +120,7 @@ enum L10n {
             .theme: "Theme", .appearance: "Appearance", .systemMode: "System", .lightMode: "Light", .darkMode: "Dark",
             .backgroundImage: "Background Image", .chooseBackground: "Choose Background…", .removeBackground: "Remove Background",
             .backgroundOpacity: "Background opacity: %d%%", .clickDragHint: "Click a stage or drag the dot", .add: "Add", .delete: "Delete", .quoteBy: "— %@"
+            , .whiteNoise: "White Noise", .ocean: "Ocean Waves", .wind: "Wind", .rain: "Rain", .rainforest: "Rainforest Birds", .chooseMusic: "Choose Music…", .customMusic: "My Music"
         ],
         .ja: [
             .work: "作業", .rest: "休憩", .focusWork: "集中作業", .takeBreak: "ひと休み",

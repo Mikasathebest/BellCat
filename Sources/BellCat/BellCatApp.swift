@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 import UserNotifications
+import AVFoundation
 
 @main
 struct BellCatApp: App {
@@ -10,6 +11,7 @@ struct BellCatApp: App {
     @StateObject private var reminders = ReminderStore()
     @StateObject private var language = LanguageManager()
     @StateObject private var theme = ThemeManager()
+    @StateObject private var ambience = AmbiencePlayer()
 
     var body: some Scene {
         WindowGroup {
@@ -18,6 +20,7 @@ struct BellCatApp: App {
                 .environmentObject(reminders)
                 .environmentObject(language)
                 .environmentObject(theme)
+                .environmentObject(ambience)
                 .environment(\.locale, language.selected.locale)
                 .environment(\.layoutDirection, language.selected.layoutDirection)
                 .preferredColorScheme(theme.preferredColorScheme)
@@ -39,6 +42,117 @@ final class BellCatAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificat
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         completionHandler([.banner, .sound])
+    }
+}
+
+enum AmbienceSound: String, CaseIterable, Identifiable {
+    case ocean, wind, rain, rainforest, custom
+    var id: Self { self }
+
+    func title(_ language: AppLanguage) -> String {
+        switch self {
+        case .ocean: return L10n.text(.ocean, language)
+        case .wind: return L10n.text(.wind, language)
+        case .rain: return L10n.text(.rain, language)
+        case .rainforest: return L10n.text(.rainforest, language)
+        case .custom: return L10n.text(.customMusic, language)
+        }
+    }
+}
+
+@MainActor
+final class AmbiencePlayer: ObservableObject {
+    @Published var selected: AmbienceSound = .ocean
+    @Published private(set) var isPlaying = false
+    @Published var customURL: URL?
+
+    private let engine = AVAudioEngine()
+    private let node = AVAudioPlayerNode()
+    private var filePlayer: AVAudioPlayer?
+    private let sampleRate = 44_100.0
+
+    init() {
+        engine.attach(node)
+        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
+        engine.connect(node, to: engine.mainMixerNode, format: format)
+        engine.mainMixerNode.outputVolume = 0.32
+    }
+
+    func toggle() { isPlaying ? pause() : play() }
+
+    func choose(_ sound: AmbienceSound) {
+        let wasPlaying = isPlaying
+        pause()
+        selected = sound
+        if wasPlaying { play() }
+    }
+
+    func setCustomFile(_ url: URL) {
+        customURL = url
+        choose(.custom)
+    }
+
+    func play() {
+        if selected == .custom, let url = customURL {
+            do {
+                filePlayer = try AVAudioPlayer(contentsOf: url)
+                filePlayer?.numberOfLoops = -1
+                filePlayer?.volume = 0.45
+                filePlayer?.play()
+                isPlaying = true
+            } catch { isPlaying = false }
+            return
+        }
+
+        node.stop()
+        let buffer = makeBuffer(for: selected)
+        node.scheduleBuffer(buffer, at: nil, options: .loops)
+        do {
+            if !engine.isRunning { try engine.start() }
+            node.play()
+            isPlaying = true
+        } catch { isPlaying = false }
+    }
+
+    func pause() {
+        node.pause()
+        filePlayer?.pause()
+        isPlaying = false
+    }
+
+    private func makeBuffer(for sound: AmbienceSound) -> AVAudioPCMBuffer {
+        let frameCount = AVAudioFrameCount(sampleRate * 12)
+        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount)!
+        buffer.frameLength = frameCount
+        var previous: Float = 0
+
+        for frame in 0..<Int(frameCount) {
+            let t = Double(frame) / sampleRate
+            let white = Float.random(in: -1...1)
+            previous = previous * 0.985 + white * 0.015
+            var sample: Float
+            switch sound {
+            case .ocean:
+                let swell = Float((sin(t * 0.42) + 1) * 0.5)
+                sample = (white * 0.11 + previous * 0.8) * (0.2 + swell * 0.8)
+            case .wind:
+                let gust = Float(0.35 + 0.3 * sin(t * 0.31) + 0.2 * sin(t * 0.09))
+                sample = previous * gust
+            case .rain:
+                let drop: Float = Float.random(in: 0...1) > 0.985 ? Float.random(in: 0.25...0.75) : 0
+                sample = white * 0.16 + drop
+            case .rainforest:
+                let bird = sin(t * 2 * .pi * (1_900 + 500 * sin(t * 3.1)))
+                let gate = pow(max(0, sin(t * 0.73)), 18)
+                sample = previous * 0.22 + Float(bird * gate) * 0.18
+            case .custom:
+                sample = 0
+            }
+            buffer.floatChannelData?[0][frame] = sample
+            buffer.floatChannelData?[1][frame] = sample * 0.96
+        }
+        return buffer
     }
 }
 
@@ -96,13 +210,7 @@ final class FocusTimer: ObservableObject {
     private let selectedKey = "bellcat.selectedRoutine.v2"
 
     init() {
-        let fallback = FocusRoutine(
-            name: L10n.text(.focusWork),
-            stages: [
-                TaskStage(kind: .work, minutes: 25, colorHex: "4B4D51"),
-                TaskStage(kind: .rest, minutes: 5, colorHex: "A7A9AD")
-            ]
-        )
+        let presets = Self.presetRoutines()
         let loadedRoutines: [FocusRoutine]
         if let data = UserDefaults.standard.data(forKey: routinesKey),
            let saved = try? JSONDecoder().decode([FocusRoutine].self, from: data), !saved.isEmpty {
@@ -120,21 +228,42 @@ final class FocusTimer: ObservableObject {
                 return updated
             }
         } else {
-            loadedRoutines = [fallback]
+            loadedRoutines = presets
         }
-        routines = loadedRoutines
+        var merged = loadedRoutines
+        for preset in presets where !merged.contains(where: { $0.name == preset.name }) {
+            merged.append(preset)
+        }
+        routines = merged
+        if merged.count != loadedRoutines.count, let data = try? JSONEncoder().encode(merged) {
+            UserDefaults.standard.set(data, forKey: routinesKey)
+        }
         if let raw = UserDefaults.standard.string(forKey: selectedKey),
-           let id = UUID(uuidString: raw), loadedRoutines.contains(where: { $0.id == id }) {
+           let id = UUID(uuidString: raw), merged.contains(where: { $0.id == id }) {
             selectedRoutineID = id
         } else {
-            selectedRoutineID = loadedRoutines[0].id
+            selectedRoutineID = merged[0].id
         }
-        let selected = loadedRoutines.first(where: { $0.id == selectedRoutineID }) ?? loadedRoutines[0]
+        let selected = merged.first(where: { $0.id == selectedRoutineID }) ?? merged[0]
         secondsLeft = selected.stages[0].minutes * 60
         NotificationAccess.request()
     }
 
     deinit { ticker?.invalidate() }
+
+    private static func presetRoutines() -> [FocusRoutine] {
+        [
+            FocusRoutine(name: "专注工作", stages: [
+                TaskStage(kind: .work, minutes: 30, colorHex: "4B4D51"),
+                TaskStage(kind: .rest, minutes: 3, colorHex: "A7A9AD")]),
+            FocusRoutine(name: "番茄时钟", stages: [
+                TaskStage(kind: .work, minutes: 25, colorHex: "4B4D51"),
+                TaskStage(kind: .rest, minutes: 5, colorHex: "A7A9AD")]),
+            FocusRoutine(name: "课程学习", stages: [
+                TaskStage(kind: .work, minutes: 40, colorHex: "4B4D51"),
+                TaskStage(kind: .rest, minutes: 10, colorHex: "A7A9AD")])
+        ]
+    }
 
     var currentRoutine: FocusRoutine {
         routines.first(where: { $0.id == selectedRoutineID }) ?? routines[0]
@@ -514,6 +643,8 @@ struct RootView: View {
 struct TimerDashboard: View {
     @EnvironmentObject private var timer: FocusTimer
     @EnvironmentObject private var language: LanguageManager
+    @EnvironmentObject private var ambience: AmbiencePlayer
+    @State private var importingMusic = false
 
     var body: some View {
         VStack(spacing: 15) {
@@ -540,10 +671,39 @@ struct TimerDashboard: View {
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large).tint(Color(hex: "3C3D40"))
             }
+
+            HStack(spacing: 10) {
+                Button(action: ambience.toggle) {
+                    Image(systemName: ambience.isPlaying ? "pause.fill" : "play.fill")
+                        .frame(width: 18)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(hex: "56585C"))
+                .help(L10n.text(.whiteNoise, language.selected))
+
+                Menu {
+                    ForEach(AmbienceSound.allCases.filter { $0 != .custom || ambience.customURL != nil }) { sound in
+                        Button { ambience.choose(sound) } label: {
+                            Text(sound.title(language.selected) + (sound == ambience.selected ? " ✓" : ""))
+                        }
+                    }
+                } label: {
+                    Label(ambience.selected.title(language.selected), systemImage: "waveform")
+                }
+                .menuStyle(.borderlessButton)
+
+                Button(L10n.text(.chooseMusic, language.selected)) { importingMusic = true }
+                    .buttonStyle(.borderless)
+            }
+            .font(.subheadline)
+
             Text(L10n.text(.completedRounds, language.selected, timer.completedRounds))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .frame(maxHeight: .infinity)
+        .fileImporter(isPresented: $importingMusic, allowedContentTypes: [.audio]) { result in
+            if case .success(let url) = result { ambience.setCustomFile(url) }
+        }
     }
 }
 
