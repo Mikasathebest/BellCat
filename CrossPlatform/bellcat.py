@@ -8,6 +8,7 @@ import platform
 import random
 import struct
 import subprocess
+import sys
 import threading
 import time
 import tkinter as tk
@@ -19,18 +20,21 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.4.0"
+VERSION = "2.5.0"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
+RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+ASSET_DIR = RESOURCE_DIR if hasattr(sys, "_MEIPASS") else RESOURCE_DIR / "AppResources"
+AMBIENCE_DIR = ASSET_DIR / "Ambience"
 
 LANGUAGES = {
-    "中文": {"timer": "番茄钟", "reminders": "提醒", "start": "开始", "pause": "暂停", "reset": "重置", "new": "新建", "settings": "设置", "work": "工作", "rest": "休息", "other": "其他", "task": "任务", "minutes": "分钟", "save": "保存", "cancel": "取消", "title": "名称", "date": "日期 YYYY-MM-DD", "clock": "时间 HH:MM", "advance": "提前分钟", "alarm": "闹钟", "notification": "通知", "no_reminders": "还没有提醒", "theme": "主题", "light": "浅色", "dark": "深色", "language": "语言", "add_stage": "添加阶段", "completed": "已完成 {n} 轮", "hint": "点击色段或拖动圆点", "due": "提醒时间到：{title}"},
-    "English": {"timer": "Timer", "reminders": "Reminders", "start": "Start", "pause": "Pause", "reset": "Reset", "new": "New", "settings": "Settings", "work": "Work", "rest": "Break", "other": "Other", "task": "Task", "minutes": "minutes", "save": "Save", "cancel": "Cancel", "title": "Name", "date": "Date YYYY-MM-DD", "clock": "Time HH:MM", "advance": "Minutes early", "alarm": "Alarm", "notification": "Notification", "no_reminders": "No reminders yet", "theme": "Theme", "light": "Light", "dark": "Dark", "language": "Language", "add_stage": "Add stage", "completed": "{n} round(s) completed", "hint": "Click a segment or drag the dot", "due": "Reminder: {title}"},
-    "日本語": {"timer": "タイマー", "reminders": "リマインダー", "start": "開始", "pause": "一時停止", "reset": "リセット", "new": "新規", "settings": "設定", "work": "作業", "rest": "休憩", "other": "その他", "task": "タスク", "minutes": "分", "save": "保存", "cancel": "キャンセル", "title": "名前", "date": "日付 YYYY-MM-DD", "clock": "時刻 HH:MM", "advance": "何分前", "alarm": "アラーム", "notification": "通知", "no_reminders": "リマインダーはありません", "theme": "テーマ", "light": "ライト", "dark": "ダーク", "language": "言語", "add_stage": "ステージを追加", "completed": "{n}セット完了", "hint": "セグメントをクリック、または点をドラッグ", "due": "リマインダー：{title}"},
-    "Español": {"timer": "Temporizador", "reminders": "Recordatorios", "start": "Iniciar", "pause": "Pausar", "reset": "Reiniciar", "new": "Nuevo", "settings": "Ajustes", "work": "Trabajo", "rest": "Descanso", "other": "Otro", "task": "Tarea", "minutes": "minutos", "save": "Guardar", "cancel": "Cancelar", "title": "Nombre", "date": "Fecha YYYY-MM-DD", "clock": "Hora HH:MM", "advance": "Minutos antes", "alarm": "Alarma", "notification": "Notificación", "no_reminders": "No hay recordatorios", "theme": "Tema", "light": "Claro", "dark": "Oscuro", "language": "Idioma", "add_stage": "Añadir etapa", "completed": "{n} ronda(s) completada(s)", "hint": "Haz clic o arrastra el punto", "due": "Recordatorio: {title}"},
-    "Français": {"timer": "Minuteur", "reminders": "Rappels", "start": "Démarrer", "pause": "Pause", "reset": "Réinitialiser", "new": "Nouveau", "settings": "Réglages", "work": "Travail", "rest": "Pause", "other": "Autre", "task": "Tâche", "minutes": "minutes", "save": "Enregistrer", "cancel": "Annuler", "title": "Nom", "date": "Date AAAA-MM-JJ", "clock": "Heure HH:MM", "advance": "Minutes avant", "alarm": "Alarme", "notification": "Notification", "no_reminders": "Aucun rappel", "theme": "Thème", "light": "Clair", "dark": "Sombre", "language": "Langue", "add_stage": "Ajouter une étape", "completed": "{n} cycle(s) terminé(s)", "hint": "Cliquez ou faites glisser le point", "due": "Rappel : {title}"},
-    "العربية": {"timer": "المؤقت", "reminders": "التذكيرات", "start": "ابدأ", "pause": "إيقاف", "reset": "إعادة", "new": "جديد", "settings": "الإعدادات", "work": "عمل", "rest": "استراحة", "other": "أخرى", "task": "مهمة", "minutes": "دقائق", "save": "حفظ", "cancel": "إلغاء", "title": "الاسم", "date": "التاريخ YYYY-MM-DD", "clock": "الوقت HH:MM", "advance": "دقائق قبل", "alarm": "منبّه", "notification": "إشعار", "no_reminders": "لا توجد تذكيرات", "theme": "السمة", "light": "فاتح", "dark": "داكن", "language": "اللغة", "add_stage": "إضافة مرحلة", "completed": "اكتملت {n} جولة", "hint": "انقر أو اسحب النقطة", "due": "تذكير: {title}"},
-    "한국어": {"timer": "타이머", "reminders": "알림", "start": "시작", "pause": "일시 정지", "reset": "초기화", "new": "새로 만들기", "settings": "설정", "work": "작업", "rest": "휴식", "other": "기타", "task": "작업", "minutes": "분", "save": "저장", "cancel": "취소", "title": "이름", "date": "날짜 YYYY-MM-DD", "clock": "시간 HH:MM", "advance": "미리 알림(분)", "alarm": "알람", "notification": "알림", "no_reminders": "알림이 없습니다", "theme": "테마", "light": "라이트", "dark": "다크", "language": "언어", "add_stage": "단계 추가", "completed": "{n}회 완료", "hint": "단계를 클릭하거나 점을 드래그", "due": "알림: {title}"},
+    "中文": {"timer": "专注", "reminders": "提醒", "start": "开始", "pause": "暂停", "reset": "重置", "new": "新建", "settings": "设置", "work": "工作", "rest": "休息", "other": "其他", "task": "任务", "minutes": "分钟", "save": "保存", "cancel": "取消", "title": "名称", "date": "日期 YYYY-MM-DD", "clock": "时间 HH:MM", "advance": "提前分钟", "alarm": "闹钟", "notification": "通知", "no_reminders": "还没有提醒", "theme": "主题", "light": "浅色", "dark": "深色", "language": "语言", "add_stage": "添加阶段", "completed": "已完成 {n} 轮", "hint": "点击色段或拖动圆点", "due": "提醒时间到：{title}"},
+    "English": {"timer": "Focus", "reminders": "Reminders", "start": "Start", "pause": "Pause", "reset": "Reset", "new": "New", "settings": "Settings", "work": "Work", "rest": "Break", "other": "Other", "task": "Task", "minutes": "minutes", "save": "Save", "cancel": "Cancel", "title": "Name", "date": "Date YYYY-MM-DD", "clock": "Time HH:MM", "advance": "Minutes early", "alarm": "Alarm", "notification": "Notification", "no_reminders": "No reminders yet", "theme": "Theme", "light": "Light", "dark": "Dark", "language": "Language", "add_stage": "Add stage", "completed": "{n} round(s) completed", "hint": "Click a segment or drag the dot", "due": "Reminder: {title}"},
+    "日本語": {"timer": "集中", "reminders": "リマインダー", "start": "開始", "pause": "一時停止", "reset": "リセット", "new": "新規", "settings": "設定", "work": "作業", "rest": "休憩", "other": "その他", "task": "タスク", "minutes": "分", "save": "保存", "cancel": "キャンセル", "title": "名前", "date": "日付 YYYY-MM-DD", "clock": "時刻 HH:MM", "advance": "何分前", "alarm": "アラーム", "notification": "通知", "no_reminders": "リマインダーはありません", "theme": "テーマ", "light": "ライト", "dark": "ダーク", "language": "言語", "add_stage": "ステージを追加", "completed": "{n}セット完了", "hint": "セグメントをクリック、または点をドラッグ", "due": "リマインダー：{title}"},
+    "Español": {"timer": "Enfoque", "reminders": "Recordatorios", "start": "Iniciar", "pause": "Pausar", "reset": "Reiniciar", "new": "Nuevo", "settings": "Ajustes", "work": "Trabajo", "rest": "Descanso", "other": "Otro", "task": "Tarea", "minutes": "minutos", "save": "Guardar", "cancel": "Cancelar", "title": "Nombre", "date": "Fecha YYYY-MM-DD", "clock": "Hora HH:MM", "advance": "Minutos antes", "alarm": "Alarma", "notification": "Notificación", "no_reminders": "No hay recordatorios", "theme": "Tema", "light": "Claro", "dark": "Oscuro", "language": "Idioma", "add_stage": "Añadir etapa", "completed": "{n} ronda(s) completada(s)", "hint": "Haz clic o arrastra el punto", "due": "Recordatorio: {title}"},
+    "Français": {"timer": "Concentration", "reminders": "Rappels", "start": "Démarrer", "pause": "Pause", "reset": "Réinitialiser", "new": "Nouveau", "settings": "Réglages", "work": "Travail", "rest": "Pause", "other": "Autre", "task": "Tâche", "minutes": "minutes", "save": "Enregistrer", "cancel": "Annuler", "title": "Nom", "date": "Date AAAA-MM-JJ", "clock": "Heure HH:MM", "advance": "Minutes avant", "alarm": "Alarme", "notification": "Notification", "no_reminders": "Aucun rappel", "theme": "Thème", "light": "Clair", "dark": "Sombre", "language": "Langue", "add_stage": "Ajouter une étape", "completed": "{n} cycle(s) terminé(s)", "hint": "Cliquez ou faites glisser le point", "due": "Rappel : {title}"},
+    "العربية": {"timer": "تركيز", "reminders": "التذكيرات", "start": "ابدأ", "pause": "إيقاف", "reset": "إعادة", "new": "جديد", "settings": "الإعدادات", "work": "عمل", "rest": "استراحة", "other": "أخرى", "task": "مهمة", "minutes": "دقائق", "save": "حفظ", "cancel": "إلغاء", "title": "الاسم", "date": "التاريخ YYYY-MM-DD", "clock": "الوقت HH:MM", "advance": "دقائق قبل", "alarm": "منبّه", "notification": "إشعار", "no_reminders": "لا توجد تذكيرات", "theme": "السمة", "light": "فاتح", "dark": "داكن", "language": "اللغة", "add_stage": "إضافة مرحلة", "completed": "اكتملت {n} جولة", "hint": "انقر أو اسحب النقطة", "due": "تذكير: {title}"},
+    "한국어": {"timer": "집중", "reminders": "알림", "start": "시작", "pause": "일시 정지", "reset": "초기화", "new": "새로 만들기", "settings": "설정", "work": "작업", "rest": "휴식", "other": "기타", "task": "작업", "minutes": "분", "save": "저장", "cancel": "취소", "title": "이름", "date": "날짜 YYYY-MM-DD", "clock": "시간 HH:MM", "advance": "미리 알림(분)", "alarm": "알람", "notification": "알림", "no_reminders": "알림이 없습니다", "theme": "테마", "light": "라이트", "dark": "다크", "language": "언어", "add_stage": "단계 추가", "completed": "{n}회 완료", "hint": "단계를 클릭하거나 점을 드래그", "due": "알림: {title}"},
 }
 
 QUOTES = [
@@ -46,12 +50,12 @@ DEFAULT = {
     "tasks": [{"name": "Focus", "stages": [
         {"name": "Work", "minutes": 25, "color": "#4B4D51"},
         {"name": "Break", "minutes": 5, "color": "#A7A9AD"}]}],
-    "selected_task": 0, "reminders": [], "ambience": "ocean", "end_sound": "Bell"
+    "selected_task": 0, "reminders": [], "ambience": "ocean", "end_sound": "Bell", "app_opacity": 1.0
 }
 
 PRESET_TASKS = [
     {"name": "专注工作", "stages": [{"name": "Work", "minutes": 30, "color": "#4B4D51"}, {"name": "Break", "minutes": 3, "color": "#A7A9AD"}]},
-    {"name": "番茄时钟", "stages": [{"name": "Work", "minutes": 25, "color": "#4B4D51"}, {"name": "Break", "minutes": 5, "color": "#A7A9AD"}]},
+    {"name": "专注", "stages": [{"name": "Work", "minutes": 25, "color": "#4B4D51"}, {"name": "Break", "minutes": 5, "color": "#A7A9AD"}]},
     {"name": "课程学习", "stages": [{"name": "Study", "minutes": 40, "color": "#4B4D51"}, {"name": "Break", "minutes": 10, "color": "#A7A9AD"}]},
 ]
 
@@ -88,6 +92,9 @@ def load_config():
         data = {**DEFAULT, **json.loads(CONFIG_FILE.read_text(encoding="utf-8"))}
     except Exception:
         data = json.loads(json.dumps(DEFAULT))
+    for task in data["tasks"]:
+        if task.get("name") in ("番茄时钟", "番茄钟"):
+            task["name"] = "专注"
     names = {task["name"] for task in data["tasks"]}
     data["tasks"].extend(json.loads(json.dumps(task)) for task in PRESET_TASKS if task["name"] not in names)
     return data
@@ -143,6 +150,7 @@ class BellCat(tk.Tk):
         self.fg = "#F1F1EF" if dark else "#292A2D"
         self.card = "#303135" if dark else "#E1E1DF"
         self.configure(bg=self.bg)
+        self.attributes("-alpha", max(.2, min(1.0, float(self.data.get("app_opacity", 1.0)))))
         style = ttk.Style(self)
         style.theme_use("clam")
         style.configure("TFrame", background=self.bg)
@@ -242,8 +250,16 @@ class BellCat(tk.Tk):
         self.canvas.bind("<ButtonRelease-1>", self.ring_release)
         controls = ttk.Frame(self.content); controls.pack(pady=8)
         ttk.Button(controls, text=self.lang["reset"], command=self.reset).pack(side="left", padx=6)
-        self.start_button = ttk.Button(controls, text=self.lang["pause"] if self.running else self.lang["start"], command=self.toggle)
-        self.start_button.pack(side="left", padx=6)
+        icon_path = ASSET_DIR / "BellCatIcon-1024.png"
+        try:
+            self.cat_button_image = tk.PhotoImage(file=str(icon_path)).subsample(17, 17)
+            self.start_button = tk.Button(controls, image=self.cat_button_image, command=self.toggle,
+                                          bg=self.bg, activebackground=self.card, relief="flat", bd=0,
+                                          cursor="hand2", padx=4, pady=4)
+        except Exception:
+            self.start_button = tk.Button(controls, text="🐱", command=self.toggle, bg=self.bg,
+                                          activebackground=self.card, relief="flat", font=("TkDefaultFont", 28))
+        self.start_button.pack(side="left", padx=8)
         self.completed_label = ttk.Label(self.content, text=self.lang["completed"].format(n=self.data["completed"]))
         self.completed_label.pack(pady=6)
         audio = ttk.Frame(self.content); audio.pack(pady=6)
@@ -257,24 +273,6 @@ class BellCat(tk.Tk):
 
     def ensure_ambience_files(self):
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        for kind in ("ocean", "wind", "rain", "rainforest"):
-            path = CONFIG_DIR / f"{kind}.wav"
-            if path.exists(): continue
-            rate, duration = 22050, 10
-            previous = 0.0
-            frames = bytearray()
-            for frame in range(rate * duration):
-                t = frame / rate
-                white = random.uniform(-1, 1)
-                previous = previous * 0.985 + white * 0.015
-                if kind == "ocean": sample = (white * .10 + previous * .8) * (.3 + .7 * (math.sin(t * .42) + 1) / 2)
-                elif kind == "wind": sample = previous * (.35 + .25 * math.sin(t * .31))
-                elif kind == "rain": sample = white * .13 + (random.uniform(.2, .6) if random.random() > .989 else 0)
-                else: sample = previous * .2 + math.sin(t * 2 * math.pi * (1900 + 450 * math.sin(t * 3.1))) * max(0, math.sin(t * .73)) ** 18 * .16
-                value = max(-32767, min(32767, int(sample * 22000)))
-                frames.extend(struct.pack("<hh", value, int(value * .96)))
-            with wave.open(str(path), "wb") as output:
-                output.setnchannels(2); output.setsampwidth(2); output.setframerate(rate); output.writeframes(frames)
         for kind, frequencies in {"Bell": (880, 1320), "Chime": (660, 990), "Pulse": (520, 780)}.items():
             path = CONFIG_DIR / f"end_{kind.lower()}.wav"
             if path.exists(): continue
@@ -295,9 +293,10 @@ class BellCat(tk.Tk):
             pygame.mixer.music.pause(); self.ambience_playing = False; self.ambience_button.configure(text="▶")
         else:
             kind = self.data.get("ambience", "ocean")
-            path = self.custom_music if kind == "custom" else CONFIG_DIR / f"{kind}.wav"
+            path = self.custom_music if kind == "custom" else AMBIENCE_DIR / f"{kind}.mp3"
             try:
-                pygame.mixer.music.load(str(path)); pygame.mixer.music.set_volume(.38); pygame.mixer.music.play(-1)
+                volumes = {"ocean": .22, "wind": .12, "rain": .18, "rainforest": .16, "custom": .42}
+                pygame.mixer.music.load(str(path)); pygame.mixer.music.set_volume(volumes.get(kind, .18)); pygame.mixer.music.play(-1)
                 self.ambience_playing = True; self.ambience_button.configure(text="Ⅱ")
             except Exception as error: messagebox.showerror(APP_NAME, str(error), parent=self)
 
@@ -425,8 +424,22 @@ class BellCat(tk.Tk):
         save_config(self.data); self.reset(); self.show_timer()
 
     def toggle(self):
-        self.running = not self.running; self.last_tick = time.monotonic()
-        self.start_button.configure(text=self.lang["pause"] if self.running else self.lang["start"])
+        if self.running:
+            self.running = False
+            return
+        if getattr(self, "cat_is_being_petted", False): return
+        self.cat_is_being_petted = True
+        self.start_button.configure(text="☝", compound="top", relief="sunken", padx=8, pady=8)
+        self.after(150, lambda: self.start_button.configure(relief="flat", padx=2, pady=2) if self.start_button.winfo_exists() else None)
+        self.after(280, lambda: self.start_button.configure(relief="sunken", padx=6, pady=6) if self.start_button.winfo_exists() else None)
+        self.after(460, self.finish_cat_pet)
+
+    def finish_cat_pet(self):
+        if hasattr(self, "start_button") and self.start_button.winfo_exists():
+            self.start_button.configure(text="", compound="none", relief="flat", padx=4, pady=4)
+        self.cat_is_being_petted = False
+        self.running = True
+        self.last_tick = time.monotonic()
 
     def reset(self):
         self.running = False; self.stage_index = 0; self.seconds_left = self.stage["minutes"] * 60; self.draw_ring()
@@ -565,11 +578,23 @@ class BellCat(tk.Tk):
             self.preview_button.configure(text=END_SOUND_LABELS.get(self.data["language"], END_SOUND_LABELS["English"])[1])
 
     def settings_dialog(self):
-        win = tk.Toplevel(self); win.title(self.lang["settings"]); win.geometry("390x330"); win.transient(self); win.grab_set()
+        win = tk.Toplevel(self); win.title(self.lang["settings"]); win.geometry("390x400"); win.transient(self); win.grab_set()
         ttk.Label(win, text=self.lang["language"]).pack(pady=(20,4))
         language = ttk.Combobox(win, values=list(LANGUAGES), state="readonly"); language.set(self.data["language"]); language.pack()
         ttk.Label(win, text=self.lang["theme"]).pack(pady=(18,4))
         theme = ttk.Combobox(win, values=["light", "dark"], state="readonly"); theme.set(self.data["theme"]); theme.pack()
+        opacity_labels = {"中文": "APP 透明度", "English": "App opacity", "日本語": "アプリの透明度", "Español": "Opacidad de la app", "Français": "Opacité de l’app", "العربية": "شفافية التطبيق", "한국어": "앱 투명도"}
+        ttk.Label(win, text=opacity_labels.get(self.data["language"], "App opacity")).pack(pady=(18, 4))
+        opacity = tk.DoubleVar(value=float(self.data.get("app_opacity", 1.0)))
+        opacity_value = ttk.Label(win, text=f"{round(opacity.get() * 100)}%")
+        opacity_value.pack()
+        def update_opacity(value):
+            amount = max(.2, min(1.0, float(value)))
+            opacity_value.configure(text=f"{round(amount * 100)}%")
+            self.attributes("-alpha", amount)
+            self.data["app_opacity"] = amount
+            save_config(self.data)
+        ttk.Scale(win, from_=.2, to=1.0, variable=opacity, command=update_opacity).pack(fill="x", padx=52)
         end_label, preview_label, _ = END_SOUND_LABELS.get(self.data["language"], END_SOUND_LABELS["English"])
         ttk.Label(win, text=end_label).pack(pady=(18,4))
         sound_row = ttk.Frame(win); sound_row.pack()
@@ -581,7 +606,7 @@ class BellCat(tk.Tk):
         self.preview_button = ttk.Button(sound_row, text=preview_label, command=self.toggle_end_sound_preview)
         self.preview_button.pack(side="left", padx=5)
         def apply():
-            self.stop_end_sound_preview(); self.data["language"] = language.get(); self.data["theme"] = theme.get(); self.data["end_sound"] = end_sound.get(); save_config(self.data)
+            self.stop_end_sound_preview(); self.data["language"] = language.get(); self.data["theme"] = theme.get(); self.data["end_sound"] = end_sound.get(); self.data["app_opacity"] = opacity.get(); save_config(self.data)
             self.lang = LANGUAGES[self.data["language"]]; win.destroy(); self.configure_ui()
         win.protocol("WM_DELETE_WINDOW", lambda: (self.stop_end_sound_preview(), win.destroy()))
         ttk.Button(win, text=self.lang["save"], command=apply).pack(pady=22)

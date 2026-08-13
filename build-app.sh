@@ -18,11 +18,15 @@ fi
 export CLANG_MODULE_CACHE_PATH="$project_dir/.build/clang-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$project_dir/.build/swiftpm-cache"
 
-swift build --disable-sandbox -c release
+swift build --disable-sandbox -c release --triple arm64-apple-macosx
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 cp "$binary_dir/BellCat" "$app_dir/Contents/MacOS/BellCat"
 cp "$project_dir/AppResources/Info.plist" "$app_dir/Contents/Info.plist"
 cp "$project_dir/AppResources/BellCat.icns" "$app_dir/Contents/Resources/BellCat.icns"
+cp "$project_dir/AppResources/BellCatIcon-1024.png" "$app_dir/Contents/Resources/BellCatIcon-1024.png"
+mkdir -p "$app_dir/Contents/Resources/Ambience"
+cp "$project_dir"/AppResources/Ambience/*.mp3 "$app_dir/Contents/Resources/Ambience/"
+cp "$project_dir/THIRD_PARTY_NOTICES.md" "$app_dir/Contents/Resources/THIRD_PARTY_NOTICES.md"
 codesign --force --deep --sign - "$app_dir"
 
 echo "Created $app_dir"

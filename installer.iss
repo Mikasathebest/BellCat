@@ -1,5 +1,5 @@
 #define MyAppName "BellCat"
-#define MyAppVersion "2.4.0"
+#define MyAppVersion "2.5.0"
 #define MyAppPublisher "BellCat contributors"
 #define MyAppExeName "BellCat.exe"
 
@@ -13,7 +13,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=.
-OutputBaseFilename=BellCat-2.4.0-Windows-x64-Setup
+OutputBaseFilename=BellCat-2.5.0-Windows-x64-Setup
 SetupIconFile=AppResources\BellCat.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
@@ -33,6 +33,7 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Source: "dist\BellCat.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "CrossPlatform\README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\BellCat"; Filename: "{app}\{#MyAppExeName}"

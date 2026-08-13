@@ -2,7 +2,7 @@
 set -euo pipefail
 
 project_dir="${0:A:h}"
-version="2.4.0"
+version="2.5.0"
 app_path="$project_dir/BellCat.app"
 dmg_path="$project_dir/BellCat-$version-macOS-arm64.dmg"
 stage_dir="$(mktemp -d /private/tmp/bellcat-dmg.XXXXXX)"

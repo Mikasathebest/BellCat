@@ -75,7 +75,7 @@ enum L10n {
             .focusComplete: "专注完成", .restComplete: "休息结束", .breakMinutes: "该休息 %d 分钟了。",
             .readyToStart: "准备开始：%@", .notification: "通知", .alarm: "闹钟", .onTime: "准时",
             .advanceDays: "提前 %d 天", .advanceHours: "提前 %d 小时", .advanceMinutes: "提前 %d 分钟",
-            .eventNotificationBody: "事件时间：%@（%@）", .timer: "番茄钟", .reminders: "日程提醒",
+            .eventNotificationBody: "事件时间：%@（%@）", .timer: "专注", .reminders: "日程提醒",
             .focusSubtitle: "给专注留一段安静的时间", .reminderSubtitle: "重要的事，提前准备", .feature: "功能",
             .settings: "设置", .focusing: "专注中", .relax: "放松一下", .reset: "重置", .pause: "暂停",
             .start: "开始", .completedRounds: "已完成 %d 轮", .custom: "自定义", .language: "语言",
@@ -93,7 +93,7 @@ enum L10n {
             .addStage: "添加阶段", .stageName: "阶段名称", .other: "其他", .savedTasks: "已保存任务",
             .theme: "主题", .appearance: "外观", .systemMode: "跟随系统", .lightMode: "浅色", .darkMode: "深色",
             .backgroundImage: "背景图片", .chooseBackground: "选择背景图片…", .removeBackground: "移除背景",
-            .backgroundOpacity: "背景透明度：%d%%", .clickDragHint: "点击阶段设置颜色，拖动圆点调整时间", .stageColor: "阶段颜色", .customColor: "自定义颜色", .add: "添加", .delete: "删除", .quoteBy: "— %@"
+            .backgroundOpacity: "APP 透明度：%d%%", .clickDragHint: "点击阶段设置颜色，拖动圆点调整时间", .stageColor: "阶段颜色", .customColor: "自定义颜色", .add: "添加", .delete: "删除", .quoteBy: "— %@"
             , .whiteNoise: "白噪声", .ocean: "海浪", .wind: "风声", .rain: "雨声", .rainforest: "热带雨林鸟鸣", .chooseMusic: "选择音乐…", .customMusic: "我的音乐"
         ],
         .en: [
@@ -101,7 +101,7 @@ enum L10n {
             .focusComplete: "Focus complete", .restComplete: "Break over", .breakMinutes: "Time for a %d-minute break.",
             .readyToStart: "Ready to start: %@", .notification: "Notification", .alarm: "Alarm", .onTime: "On time",
             .advanceDays: "%d day(s) early", .advanceHours: "%d hour(s) early", .advanceMinutes: "%d minute(s) early",
-            .eventNotificationBody: "Event: %@ (%@)", .timer: "Pomodoro", .reminders: "Reminders",
+            .eventNotificationBody: "Event: %@ (%@)", .timer: "Focus", .reminders: "Reminders",
             .focusSubtitle: "Make quiet time for focus", .reminderSubtitle: "Prepare early for what matters", .feature: "Feature",
             .settings: "Settings", .focusing: "Focusing", .relax: "Take it easy", .reset: "Reset", .pause: "Pause",
             .start: "Start", .completedRounds: "%d round(s) completed", .custom: "Custom", .language: "Language",
@@ -119,7 +119,7 @@ enum L10n {
             .addStage: "Add Stage", .stageName: "Stage name", .other: "Other", .savedTasks: "Saved Tasks",
             .theme: "Theme", .appearance: "Appearance", .systemMode: "System", .lightMode: "Light", .darkMode: "Dark",
             .backgroundImage: "Background Image", .chooseBackground: "Choose Background…", .removeBackground: "Remove Background",
-            .backgroundOpacity: "Background opacity: %d%%", .clickDragHint: "Click a stage for color; drag the dot to seek", .stageColor: "Stage color", .customColor: "Custom color", .add: "Add", .delete: "Delete", .quoteBy: "— %@"
+            .backgroundOpacity: "App opacity: %d%%", .clickDragHint: "Click a stage for color; drag the dot to seek", .stageColor: "Stage color", .customColor: "Custom color", .add: "Add", .delete: "Delete", .quoteBy: "— %@"
             , .whiteNoise: "White Noise", .ocean: "Ocean Waves", .wind: "Wind", .rain: "Rain", .rainforest: "Rainforest Birds", .chooseMusic: "Choose Music…", .customMusic: "My Music"
         ],
         .ja: [
@@ -127,7 +127,7 @@ enum L10n {
             .focusComplete: "集中時間が終了", .restComplete: "休憩が終了", .breakMinutes: "%d分間休憩しましょう。",
             .readyToStart: "開始しましょう：%@", .notification: "通知", .alarm: "アラーム", .onTime: "時間どおり",
             .advanceDays: "%d日前", .advanceHours: "%d時間前", .advanceMinutes: "%d分前",
-            .eventNotificationBody: "予定時刻：%@（%@）", .timer: "ポモドーロ", .reminders: "リマインダー",
+            .eventNotificationBody: "予定時刻：%@（%@）", .timer: "集中", .reminders: "リマインダー",
             .focusSubtitle: "集中するための静かな時間", .reminderSubtitle: "大切な予定に早めの準備を", .feature: "機能",
             .settings: "設定", .focusing: "集中中", .relax: "リラックス", .reset: "リセット", .pause: "一時停止",
             .start: "開始", .completedRounds: "%dセット完了", .custom: "カスタム", .language: "言語",
@@ -145,14 +145,14 @@ enum L10n {
             .addStage: "ステージを追加", .stageName: "ステージ名", .other: "その他", .savedTasks: "保存済みタスク",
             .theme: "テーマ", .appearance: "外観", .systemMode: "システム", .lightMode: "ライト", .darkMode: "ダーク",
             .backgroundImage: "背景画像", .chooseBackground: "背景を選択…", .removeBackground: "背景を削除",
-            .backgroundOpacity: "背景の透明度：%d%%", .clickDragHint: "ステージで色を設定、点をドラッグして時間を調整", .stageColor: "ステージ色", .customColor: "カスタム色", .add: "追加", .delete: "削除", .quoteBy: "— %@"
+            .backgroundOpacity: "アプリの透明度：%d%%", .clickDragHint: "ステージで色を設定、点をドラッグして時間を調整", .stageColor: "ステージ色", .customColor: "カスタム色", .add: "追加", .delete: "削除", .quoteBy: "— %@"
         ],
         .es: [
             .work: "Trabajo", .rest: "Descanso", .focusWork: "Trabajo enfocado", .takeBreak: "Tómate un descanso",
             .focusComplete: "Sesión completada", .restComplete: "Descanso terminado", .breakMinutes: "Es hora de descansar %d minutos.",
             .readyToStart: "Listo para empezar: %@", .notification: "Notificación", .alarm: "Alarma", .onTime: "A la hora",
             .advanceDays: "%d día(s) antes", .advanceHours: "%d hora(s) antes", .advanceMinutes: "%d minuto(s) antes",
-            .eventNotificationBody: "Evento: %@ (%@)", .timer: "Pomodoro", .reminders: "Recordatorios",
+            .eventNotificationBody: "Evento: %@ (%@)", .timer: "Enfoque", .reminders: "Recordatorios",
             .focusSubtitle: "Reserva un momento tranquilo para concentrarte", .reminderSubtitle: "Prepárate con tiempo para lo importante", .feature: "Función",
             .settings: "Ajustes", .focusing: "Concentrándote", .relax: "Relájate", .reset: "Reiniciar", .pause: "Pausar",
             .start: "Iniciar", .completedRounds: "%d ronda(s) completada(s)", .custom: "Personalizado", .language: "Idioma",
@@ -170,14 +170,14 @@ enum L10n {
             .addStage: "Añadir etapa", .stageName: "Nombre de etapa", .other: "Otro", .savedTasks: "Tareas guardadas",
             .theme: "Tema", .appearance: "Apariencia", .systemMode: "Sistema", .lightMode: "Claro", .darkMode: "Oscuro",
             .backgroundImage: "Imagen de fondo", .chooseBackground: "Elegir fondo…", .removeBackground: "Quitar fondo",
-            .backgroundOpacity: "Opacidad del fondo: %d%%", .clickDragHint: "Pulsa una etapa para el color; arrastra el punto para ajustar", .stageColor: "Color de etapa", .customColor: "Color personalizado", .add: "Añadir", .delete: "Eliminar", .quoteBy: "— %@"
+            .backgroundOpacity: "Opacidad de la app: %d%%", .clickDragHint: "Pulsa una etapa para el color; arrastra el punto para ajustar", .stageColor: "Color de etapa", .customColor: "Color personalizado", .add: "Añadir", .delete: "Eliminar", .quoteBy: "— %@"
         ],
         .fr: [
             .work: "Travail", .rest: "Pause", .focusWork: "Travail concentré", .takeBreak: "Faites une pause",
             .focusComplete: "Session terminée", .restComplete: "Pause terminée", .breakMinutes: "C'est l'heure d'une pause de %d minutes.",
             .readyToStart: "Prêt à commencer : %@", .notification: "Notification", .alarm: "Alarme", .onTime: "À l'heure",
             .advanceDays: "%d jour(s) avant", .advanceHours: "%d heure(s) avant", .advanceMinutes: "%d minute(s) avant",
-            .eventNotificationBody: "Événement : %@ (%@)", .timer: "Pomodoro", .reminders: "Rappels",
+            .eventNotificationBody: "Événement : %@ (%@)", .timer: "Concentration", .reminders: "Rappels",
             .focusSubtitle: "Un moment calme pour se concentrer", .reminderSubtitle: "Préparez à l'avance ce qui compte", .feature: "Fonction",
             .settings: "Réglages", .focusing: "Concentration", .relax: "Détendez-vous", .reset: "Réinitialiser", .pause: "Pause",
             .start: "Démarrer", .completedRounds: "%d cycle(s) terminé(s)", .custom: "Personnalisé", .language: "Langue",
@@ -195,14 +195,14 @@ enum L10n {
             .addStage: "Ajouter une étape", .stageName: "Nom de l’étape", .other: "Autre", .savedTasks: "Tâches enregistrées",
             .theme: "Thème", .appearance: "Apparence", .systemMode: "Système", .lightMode: "Clair", .darkMode: "Sombre",
             .backgroundImage: "Image d’arrière-plan", .chooseBackground: "Choisir un arrière-plan…", .removeBackground: "Supprimer l’arrière-plan",
-            .backgroundOpacity: "Opacité du fond : %d%%", .clickDragHint: "Cliquez sur une étape pour sa couleur ; glissez le point", .stageColor: "Couleur de l’étape", .customColor: "Couleur personnalisée", .add: "Ajouter", .delete: "Supprimer", .quoteBy: "— %@"
+            .backgroundOpacity: "Opacité de l’app : %d%%", .clickDragHint: "Cliquez sur une étape pour sa couleur ; glissez le point", .stageColor: "Couleur de l’étape", .customColor: "Couleur personnalisée", .add: "Ajouter", .delete: "Supprimer", .quoteBy: "— %@"
         ],
         .ar: [
             .work: "عمل", .rest: "استراحة", .focusWork: "عمل بتركيز", .takeBreak: "خذ استراحة",
             .focusComplete: "اكتمل التركيز", .restComplete: "انتهت الاستراحة", .breakMinutes: "حان وقت استراحة لمدة %d دقيقة.",
             .readyToStart: "جاهز للبدء: %@", .notification: "إشعار", .alarm: "منبّه", .onTime: "في الموعد",
             .advanceDays: "قبل %d يوم", .advanceHours: "قبل %d ساعة", .advanceMinutes: "قبل %d دقيقة",
-            .eventNotificationBody: "موعد الحدث: %@ (%@)", .timer: "بومودورو", .reminders: "التذكيرات",
+            .eventNotificationBody: "موعد الحدث: %@ (%@)", .timer: "تركيز", .reminders: "التذكيرات",
             .focusSubtitle: "وقت هادئ للتركيز", .reminderSubtitle: "استعد مبكرًا لما يهم", .feature: "الميزة",
             .settings: "الإعدادات", .focusing: "جارٍ التركيز", .relax: "استرخِ", .reset: "إعادة ضبط", .pause: "إيقاف مؤقت",
             .start: "ابدأ", .completedRounds: "اكتملت %d جولة", .custom: "مخصص", .language: "اللغة",
@@ -220,14 +220,14 @@ enum L10n {
             .addStage: "إضافة مرحلة", .stageName: "اسم المرحلة", .other: "أخرى", .savedTasks: "المهام المحفوظة",
             .theme: "السمة", .appearance: "المظهر", .systemMode: "النظام", .lightMode: "فاتح", .darkMode: "داكن",
             .backgroundImage: "صورة الخلفية", .chooseBackground: "اختيار خلفية…", .removeBackground: "إزالة الخلفية",
-            .backgroundOpacity: "شفافية الخلفية: %d%%", .clickDragHint: "انقر على مرحلة للون، واسحب النقطة لضبط الوقت", .stageColor: "لون المرحلة", .customColor: "لون مخصص", .add: "إضافة", .delete: "حذف", .quoteBy: "— %@"
+            .backgroundOpacity: "شفافية التطبيق: %d%%", .clickDragHint: "انقر على مرحلة للون، واسحب النقطة لضبط الوقت", .stageColor: "لون المرحلة", .customColor: "لون مخصص", .add: "إضافة", .delete: "حذف", .quoteBy: "— %@"
         ],
         .ko: [
             .work: "작업", .rest: "휴식", .focusWork: "집중 작업", .takeBreak: "잠시 쉬기",
             .focusComplete: "집중 완료", .restComplete: "휴식 종료", .breakMinutes: "%d분 동안 쉬어갈 시간입니다.",
             .readyToStart: "시작할 준비: %@", .notification: "알림", .alarm: "알람", .onTime: "정시에",
             .advanceDays: "%d일 전", .advanceHours: "%d시간 전", .advanceMinutes: "%d분 전",
-            .eventNotificationBody: "일정 시간: %@ (%@)", .timer: "포모도로", .reminders: "일정 알림",
+            .eventNotificationBody: "일정 시간: %@ (%@)", .timer: "집중", .reminders: "일정 알림",
             .focusSubtitle: "집중을 위한 조용한 시간", .reminderSubtitle: "중요한 일을 미리 준비하세요", .feature: "기능",
             .settings: "설정", .focusing: "집중 중", .relax: "휴식하세요", .reset: "초기화", .pause: "일시 정지",
             .start: "시작", .completedRounds: "%d회 완료", .custom: "사용자 지정", .language: "언어",
@@ -245,7 +245,7 @@ enum L10n {
             .addStage: "단계 추가", .stageName: "단계 이름", .other: "기타", .savedTasks: "저장된 작업",
             .theme: "테마", .appearance: "화면 모드", .systemMode: "시스템", .lightMode: "라이트", .darkMode: "다크",
             .backgroundImage: "배경 이미지", .chooseBackground: "배경 선택…", .removeBackground: "배경 제거",
-            .backgroundOpacity: "배경 투명도: %d%%", .clickDragHint: "단계를 눌러 색상을 설정하고 점을 끌어 시간을 조절하세요", .stageColor: "단계 색상", .customColor: "사용자 색상", .add: "추가", .delete: "삭제", .quoteBy: "— %@"
+            .backgroundOpacity: "앱 투명도: %d%%", .clickDragHint: "단계를 눌러 색상을 설정하고 점을 끌어 시간을 조절하세요", .stageColor: "단계 색상", .customColor: "사용자 색상", .add: "추가", .delete: "삭제", .quoteBy: "— %@"
         ]
     ]
 }

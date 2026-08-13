@@ -66,17 +66,7 @@ final class AmbiencePlayer: ObservableObject {
     @Published private(set) var isPlaying = false
     @Published var customURL: URL?
 
-    private let engine = AVAudioEngine()
-    private let node = AVAudioPlayerNode()
     private var filePlayer: AVAudioPlayer?
-    private let sampleRate = 44_100.0
-
-    init() {
-        engine.attach(node)
-        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
-        engine.connect(node, to: engine.mainMixerNode, format: format)
-        engine.mainMixerNode.outputVolume = 0.32
-    }
 
     func toggle() { isPlaying ? pause() : play() }
 
@@ -93,66 +83,36 @@ final class AmbiencePlayer: ObservableObject {
     }
 
     func play() {
-        if selected == .custom, let url = customURL {
-            do {
-                filePlayer = try AVAudioPlayer(contentsOf: url)
-                filePlayer?.numberOfLoops = -1
-                filePlayer?.volume = 0.45
-                filePlayer?.play()
-                isPlaying = true
-            } catch { isPlaying = false }
-            return
+        let url: URL?
+        if selected == .custom {
+            url = customURL
+        } else {
+            url = Bundle.main.url(forResource: selected.rawValue, withExtension: "mp3", subdirectory: "Ambience")
         }
-
-        node.stop()
-        let buffer = makeBuffer(for: selected)
-        node.scheduleBuffer(buffer, at: nil, options: .loops)
+        guard let url else { isPlaying = false; return }
         do {
-            if !engine.isRunning { try engine.start() }
-            node.play()
+            filePlayer = try AVAudioPlayer(contentsOf: url)
+            filePlayer?.numberOfLoops = -1
+            filePlayer?.volume = selected == .custom ? 0.42 : builtInVolume
+            filePlayer?.prepareToPlay()
+            filePlayer?.play()
             isPlaying = true
         } catch { isPlaying = false }
     }
 
     func pause() {
-        node.pause()
         filePlayer?.pause()
         isPlaying = false
     }
 
-    private func makeBuffer(for sound: AmbienceSound) -> AVAudioPCMBuffer {
-        let frameCount = AVAudioFrameCount(sampleRate * 12)
-        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
-        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount)!
-        buffer.frameLength = frameCount
-        var previous: Float = 0
-
-        for frame in 0..<Int(frameCount) {
-            let t = Double(frame) / sampleRate
-            let white = Float.random(in: -1...1)
-            previous = previous * 0.985 + white * 0.015
-            var sample: Float
-            switch sound {
-            case .ocean:
-                let swell = Float((sin(t * 0.42) + 1) * 0.5)
-                sample = (white * 0.11 + previous * 0.8) * (0.2 + swell * 0.8)
-            case .wind:
-                let gust = Float(0.35 + 0.3 * sin(t * 0.31) + 0.2 * sin(t * 0.09))
-                sample = previous * gust
-            case .rain:
-                let drop: Float = Float.random(in: 0...1) > 0.985 ? Float.random(in: 0.25...0.75) : 0
-                sample = white * 0.16 + drop
-            case .rainforest:
-                let bird = sin(t * 2 * .pi * (1_900 + 500 * sin(t * 3.1)))
-                let gate = pow(max(0, sin(t * 0.73)), 18)
-                sample = previous * 0.22 + Float(bird * gate) * 0.18
-            case .custom:
-                sample = 0
-            }
-            buffer.floatChannelData?[0][frame] = sample
-            buffer.floatChannelData?[1][frame] = sample * 0.96
+    private var builtInVolume: Float {
+        switch selected {
+        case .ocean: return 0.22
+        case .wind: return 0.12
+        case .rain: return 0.18
+        case .rainforest: return 0.16
+        case .custom: return 0.42
         }
-        return buffer
     }
 }
 
@@ -220,6 +180,7 @@ final class FocusTimer: ObservableObject {
             let monochrome = ["4B4D51", "A7A9AD", "D1CEC6", "6E7074", "B9BBC0", "34363A"]
             loadedRoutines = saved.map { routine in
                 var updated = routine
+                if updated.name == "番茄时钟" || updated.name == "番茄钟" { updated.name = "专注" }
                 updated.stages = routine.stages.enumerated().map { index, stage in
                     var updatedStage = stage
                     let legacyColors = ["F3A83B", "58BFA8", "ED6A5A", "7A8EDB", "B67AD9", "5BA6D9"]
@@ -238,7 +199,7 @@ final class FocusTimer: ObservableObject {
             merged.append(preset)
         }
         routines = merged
-        if merged.count != loadedRoutines.count, let data = try? JSONEncoder().encode(merged) {
+        if let data = try? JSONEncoder().encode(merged) {
             UserDefaults.standard.set(data, forKey: routinesKey)
         }
         if let raw = UserDefaults.standard.string(forKey: selectedKey),
@@ -259,7 +220,7 @@ final class FocusTimer: ObservableObject {
             FocusRoutine(name: "专注工作", stages: [
                 TaskStage(kind: .work, minutes: 30, colorHex: "4B4D51"),
                 TaskStage(kind: .rest, minutes: 3, colorHex: "A7A9AD")]),
-            FocusRoutine(name: "番茄时钟", stages: [
+            FocusRoutine(name: "专注", stages: [
                 TaskStage(kind: .work, minutes: 25, colorHex: "4B4D51"),
                 TaskStage(kind: .rest, minutes: 5, colorHex: "A7A9AD")]),
             FocusRoutine(name: "课程学习", stages: [
@@ -502,13 +463,13 @@ final class ThemeManager: ObservableObject {
     @Published var backgroundOpacity: Double
     @Published private(set) var backgroundURL: URL?
     private let appearanceKey = "bellcat.appearance.v1"
-    private let opacityKey = "bellcat.backgroundOpacity.v1"
+    private let opacityKey = "bellcat.appOpacity.v2"
     private let bookmarkKey = "bellcat.backgroundBookmark.v1"
 
     init() {
         appearance = Appearance(rawValue: UserDefaults.standard.string(forKey: appearanceKey) ?? "") ?? .system
         let savedOpacity = UserDefaults.standard.object(forKey: opacityKey) as? Double
-        backgroundOpacity = savedOpacity ?? 0.32
+        backgroundOpacity = min(1, max(0.2, savedOpacity ?? 1))
         loadBackground()
     }
     var preferredColorScheme: ColorScheme? {
@@ -519,8 +480,8 @@ final class ThemeManager: ObservableObject {
         UserDefaults.standard.set(value.rawValue, forKey: appearanceKey)
     }
     func setOpacity(_ value: Double) {
-        backgroundOpacity = value
-        UserDefaults.standard.set(value, forKey: opacityKey)
+        backgroundOpacity = min(1, max(0.2, value))
+        UserDefaults.standard.set(backgroundOpacity, forKey: opacityKey)
     }
     func setBackground(_ url: URL) {
         do {
@@ -543,6 +504,27 @@ final class ThemeManager: ObservableObject {
             backgroundURL = url
             _ = url.startAccessingSecurityScopedResource()
             if stale { setBackground(url) }
+        }
+    }
+}
+
+private struct WindowOpacityController: NSViewRepresentable {
+    let opacity: Double
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        apply(to: view)
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) { apply(to: view) }
+
+    private func apply(to view: NSView) {
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.alphaValue = min(1, max(0.2, opacity))
         }
     }
 }
@@ -610,7 +592,7 @@ struct RootView: View {
                 endPoint: .bottomTrailing
             ).ignoresSafeArea()
             if let url = theme.backgroundURL, let image = NSImage(contentsOf: url) {
-                Image(nsImage: image).resizable().scaledToFill().opacity(theme.backgroundOpacity).ignoresSafeArea().clipped()
+                Image(nsImage: image).resizable().scaledToFill().opacity(0.58).ignoresSafeArea().clipped()
                 Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
             }
 
@@ -626,6 +608,7 @@ struct RootView: View {
             }
             .padding(24)
         }
+        .background(WindowOpacityController(opacity: theme.backgroundOpacity))
         .sheet(isPresented: $showingAdd) { AddItemView(initialTab: section).frame(minWidth: 520) }
         .sheet(isPresented: $showingSettings) { SettingsView().frame(minWidth: 500) }
     }
@@ -815,11 +798,7 @@ struct TimerDashboard: View {
             HStack(spacing: 14) {
                 Button { timer.reset() } label: { Image(systemName: "arrow.counterclockwise") }
                     .buttonStyle(.bordered).controlSize(.large).help(L10n.text(.reset, language.selected))
-                Button(action: timer.startPause) {
-                    Label(timer.isRunning ? L10n.text(.pause, language.selected) : L10n.text(.start, language.selected),
-                          systemImage: timer.isRunning ? "pause.fill" : "play.fill").frame(minWidth: 105)
-                }
-                .buttonStyle(.borderedProminent).controlSize(.large).tint(Color(hex: "3C3D40"))
+                PettableCatTimerButton()
             }
 
             HStack(spacing: 10) {
@@ -857,6 +836,87 @@ struct TimerDashboard: View {
     }
 }
 
+private struct PettableCatTimerButton: View {
+    @EnvironmentObject private var timer: FocusTimer
+    @EnvironmentObject private var language: LanguageManager
+    @State private var isPetting = false
+    @State private var handOffset: CGFloat = -46
+    @State private var catScale = 1.0
+    @State private var catRotation = 0.0
+
+    var body: some View {
+        Button(action: toggleTimer) {
+            ZStack {
+                Group {
+                    if let image = catImage {
+                        Image(nsImage: image).resizable().scaledToFill()
+                    } else {
+                        Image(systemName: "cat.fill").resizable().scaledToFit().padding(13)
+                    }
+                }
+                .frame(width: 62, height: 62)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(.white.opacity(0.48), lineWidth: 1))
+                .shadow(color: .black.opacity(0.22), radius: 7, y: 3)
+                .scaleEffect(catScale)
+                .rotationEffect(.degrees(catRotation))
+
+                if timer.isRunning && !isPetting {
+                    Image(systemName: "pause.fill")
+                        .font(.caption2.bold()).foregroundStyle(.white)
+                        .padding(6).background(Color.black.opacity(0.72), in: Circle())
+                        .offset(x: 25, y: 25)
+                }
+                if isPetting {
+                    Image(systemName: "hand.point.down.fill")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(Color(hex: "D8D5CE"))
+                        .shadow(color: .black.opacity(0.25), radius: 2)
+                        .offset(x: 10, y: handOffset)
+                }
+            }
+            .frame(width: 78, height: 78)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isPetting)
+        .help(L10n.text(timer.isRunning ? .pause : .start, language.selected))
+        .accessibilityLabel(L10n.text(timer.isRunning ? .pause : .start, language.selected))
+    }
+
+    private var catImage: NSImage? {
+        guard let url = Bundle.main.url(forResource: "BellCatIcon-1024", withExtension: "png") else { return nil }
+        return NSImage(contentsOf: url)
+    }
+
+    private func toggleTimer() {
+        if timer.isRunning { timer.pause(); return }
+        guard !isPetting else { return }
+        isPetting = true
+        handOffset = -48
+        withAnimation(.easeInOut(duration: 0.22)) {
+            handOffset = -24
+            catScale = 0.91
+            catRotation = -4
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+            withAnimation(.interpolatingSpring(stiffness: 300, damping: 9)) {
+                handOffset = -42
+                catScale = 1.07
+                catRotation = 3
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.48) {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.62)) {
+                catScale = 1
+                catRotation = 0
+                isPetting = false
+            }
+            timer.start()
+        }
+    }
+}
+
 struct InteractiveRoutineRing: View {
     @EnvironmentObject private var timer: FocusTimer
     @EnvironmentObject private var language: LanguageManager
@@ -880,12 +940,6 @@ struct InteractiveRoutineRing: View {
                                 style: StrokeStyle(lineWidth: index == timer.currentStageIndex ? 27 : 21, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .shadow(color: Color(hex: stage.colorHex).opacity(editingStageID == stage.id ? 0.52 : 0), radius: 8)
-                        .onTapGesture {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
-                                timer.selectStage(index)
-                                editingStageID = stage.id
-                            }
-                        }
                 }
 
                 trailLayer(radius: radius, size: proxy.size)
@@ -914,6 +968,23 @@ struct InteractiveRoutineRing: View {
                 }
             }
             .coordinateSpace(name: "BellCatRing")
+            .simultaneousGesture(
+                SpatialTapGesture(coordinateSpace: .named("BellCatRing")).onEnded { value in
+                    let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                    let distance = hypot(value.location.x - center.x, value.location.y - center.y)
+                    let handleTheta = timer.sequenceProgress * 2 * .pi - .pi / 2
+                    let handlePoint = CGPoint(x: center.x + radius * cos(handleTheta),
+                                              y: center.y + radius * sin(handleTheta))
+                    guard abs(distance - radius) <= 34,
+                          hypot(value.location.x - handlePoint.x, value.location.y - handlePoint.y) > 30 else { return }
+                    let index = stageIndex(at: ringFraction(at: value.location, in: proxy.size))
+                    guard timer.currentRoutine.stages.indices.contains(index) else { return }
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                        timer.selectStage(index)
+                        editingStageID = timer.currentRoutine.stages[index].id
+                    }
+                }
+            )
             .onChange(of: timer.selectedRoutineID) { _ in editingStageID = nil }
         }
     }
@@ -1012,6 +1083,18 @@ struct InteractiveRoutineRing: View {
         let start = Double(stages.prefix(index).reduce(0) { $0 + $1.minutes }) / total
         let end = start + Double(stages[index].minutes) / total
         return (start, end)
+    }
+
+    private func stageIndex(at fraction: Double) -> Int {
+        let stages = timer.currentRoutine.stages
+        let total = Double(max(1, stages.reduce(0) { $0 + $1.minutes }))
+        let target = fraction * total
+        var cursor = 0.0
+        for (index, stage) in stages.enumerated() {
+            cursor += Double(stage.minutes)
+            if target < cursor { return index }
+        }
+        return max(0, stages.count - 1)
     }
 }
 
@@ -1271,7 +1354,7 @@ struct SettingsView: View {
             }
             HStack {
                 Text(L10n.text(.backgroundOpacity, language.selected, Int(theme.backgroundOpacity * 100)))
-                Slider(value: Binding(get: { theme.backgroundOpacity }, set: { theme.setOpacity($0) }), in: 0...1)
+                Slider(value: Binding(get: { theme.backgroundOpacity }, set: { theme.setOpacity($0) }), in: 0.2...1)
             }
 
             Divider()
