@@ -23,13 +23,13 @@
 
 ### macOS
 
-下载 `BellCat-2.1.1-macOS-arm64.dmg`，打开后将 BellCat 拖入 Applications。当前版本适用于 Apple Silicon，最低支持 macOS 13。
+下载 `BellCat-2.1.2-macOS-arm64.dmg`，打开后将 BellCat 拖入 Applications。当前版本适用于 Apple Silicon，最低支持 macOS 13。
 
 当前 macOS 包采用临时签名，尚未使用 Apple Developer ID 公证。如果首次打开被系统阻止，请在 Finder 中右键 BellCat 并选择“打开”。
 
 ### Windows
 
-推荐下载 `BellCat-2.1.1-Windows-x64-Setup.exe`，双击后按安装向导完成安装。安装程序会创建开始菜单入口，并可选创建桌面快捷方式；不需要管理员权限。
+推荐下载 `BellCat-2.1.2-Windows-x64-Setup.exe`，双击后按安装向导完成安装。安装程序会创建开始菜单入口，并可选创建桌面快捷方式；不需要管理员权限。
 
 便携版可以下载 `BellCat-Windows-x64.zip`，解压后直接运行 `BellCat.exe`。
 

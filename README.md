@@ -23,13 +23,13 @@ Visit the [latest release](../../releases/latest) and choose the package for you
 
 ### macOS
 
-Download `BellCat-2.1.1-macOS-arm64.dmg`, open it, and drag BellCat into Applications. The current package supports Apple Silicon and requires macOS 13 or later.
+Download `BellCat-2.1.2-macOS-arm64.dmg`, open it, and drag BellCat into Applications. The current package supports Apple Silicon and requires macOS 13 or later.
 
 The macOS package is ad-hoc signed but not yet notarized with an Apple Developer ID. If Gatekeeper blocks the first launch, Control-click BellCat in Finder, choose **Open**, and confirm.
 
 ### Windows
 
-For the easiest installation, download `BellCat-2.1.1-Windows-x64-Setup.exe` and follow the installer. It adds a Start Menu shortcut, optionally creates a desktop shortcut, and installs per-user without administrator access.
+For the easiest installation, download `BellCat-2.1.2-Windows-x64-Setup.exe` and follow the installer. It adds a Start Menu shortcut, optionally creates a desktop shortcut, and installs per-user without administrator access.
 
 For a portable copy, download `BellCat-Windows-x64.zip`, extract it, and run `BellCat.exe`.
 

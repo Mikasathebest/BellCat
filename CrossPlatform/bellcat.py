@@ -14,7 +14,7 @@ from pathlib import Path
 from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 
 APP_NAME = "BellCat"
-VERSION = "2.1.1"
+VERSION = "2.1.2"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 
