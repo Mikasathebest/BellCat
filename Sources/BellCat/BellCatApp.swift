@@ -24,7 +24,7 @@ struct BellCatApp: App {
                 .environment(\.locale, language.selected.locale)
                 .environment(\.layoutDirection, language.selected.layoutDirection)
                 .preferredColorScheme(theme.preferredColorScheme)
-                .frame(minWidth: 680, minHeight: 650)
+                .frame(minWidth: 620, minHeight: 650)
         }
         .windowStyle(.hiddenTitleBar)
     }
@@ -912,24 +912,23 @@ struct TimerDashboard: View {
 
             HStack(spacing: 18) {
                 InteractiveRoutineRing(editingStageID: $colorStageID).frame(width: 340, height: 340)
-                Group {
-                    if let colorStageID { RingStageColorPanel(stageID: colorStageID) }
-                    else { Color.clear }
-                }.frame(width: 210, alignment: .leading)
-            }
-
-            HStack(spacing: 18) {
-                ZStack {
-                    HStack {
-                        Button { timer.reset() } label: { Image(systemName: "arrow.counterclockwise") }
-                            .buttonStyle(.bordered).controlSize(.large).help(L10n.text(.reset, language.selected))
-                        Spacer()
-                    }
-                    PettableCatTimerButton()
+                if let colorStageID {
+                    RingStageColorPanel(stageID: colorStageID)
+                        .frame(width: 180, alignment: .leading)
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
                 }
-                .frame(width: 340, height: 78)
-                Color.clear.frame(width: 210, height: 1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            ZStack {
+                PettableCatTimerButton()
+                Button { timer.reset() } label: { Image(systemName: "arrow.counterclockwise") }
+                    .buttonStyle(.bordered).controlSize(.large)
+                    .help(L10n.text(.reset, language.selected))
+                    .offset(x: -70)
+            }
+            .frame(width: 340, height: 78)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if timer.isAwaitingStageAdvance {
                 Text("🐱  \(L10n.text(.readyToStart, language.selected, timer.nextStage.title(language.selected)))")

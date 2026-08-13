@@ -20,7 +20,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.5.6"
+VERSION = "2.5.7"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -129,7 +129,7 @@ class BellCat(tk.Tk):
         self.data = load_config()
         self.lang = LANGUAGES.get(self.data["language"], LANGUAGES["English"])
         self.title(f"BellCat {VERSION}")
-        self.geometry("780x720")
+        self.geometry("680x720")
         self.minsize(650, 600)
         self.running = False
         self.stage_index = 0
@@ -258,15 +258,14 @@ class BellCat(tk.Tk):
         ring_row = ttk.Frame(self.content); ring_row.pack(pady=6)
         self.canvas = tk.Canvas(ring_row, width=410, height=410, bg=self.bg, highlightthickness=0)
         self.canvas.pack(side="left")
-        self.color_panel = ttk.Frame(ring_row, width=190, height=260)
-        self.color_panel.pack(side="left", padx=(14, 0), fill="y")
+        self.color_panel = ttk.Frame(ring_row, width=165, height=260)
         self.color_panel.pack_propagate(False)
         self.canvas.bind("<Button-1>", self.ring_press)
         self.canvas.bind("<B1-Motion>", self.ring_drag)
         self.canvas.bind("<ButtonRelease-1>", self.ring_release)
-        controls = ttk.Frame(self.content, width=614, height=78); controls.pack(pady=8)
+        controls = ttk.Frame(self.content, width=410, height=78); controls.pack(anchor="w", pady=8)
         controls.pack_propagate(False)
-        ttk.Button(controls, text=self.lang["reset"], command=self.reset).place(x=95, rely=.5, anchor="center")
+        ttk.Button(controls, text=self.lang["reset"], command=self.reset).place(x=135, rely=.5, anchor="center")
         icon_path = ASSET_DIR / "BellCatIcon-1024.png"
         try:
             self.cat_button_image = tk.PhotoImage(file=str(icon_path)).subsample(17, 17)
@@ -430,6 +429,8 @@ class BellCat(tk.Tk):
 
     def show_stage_color_panel(self):
         if not hasattr(self, "color_panel") or not self.color_panel.winfo_exists(): return
+        if not self.color_panel.winfo_manager():
+            self.color_panel.pack(side="left", padx=(14, 0), fill="y")
         for child in self.color_panel.winfo_children(): child.destroy()
         label = COLOR_LABELS.get(self.data["language"], "Stage color")
         ttk.Label(self.color_panel, text=label, font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(58, 3))
