@@ -49,7 +49,7 @@ enum LKey {
     case reminderItems, newReminder, noReminders, reminderExample, reminderDetail, expired
     case minutes, hours, days, airportDefault, reminderName, eventDateTime, advance, unit, alertMethod
     case willRemind, alarmDescription, notificationDescription, futureTimeError, cancel, saveReminder
-    case taskName, workMinutes, restMinutes, endSound, sound, customFile, chooseAudio, removeCustom, done
+    case taskName, workMinutes, restMinutes, endSound, sound, customFile, chooseAudio, removeCustom, previewSixSeconds, stopPreview, done
     case newItem, routine, createTask, taskDuration, addStage, stageName, other, savedTasks
     case theme, appearance, systemMode, lightMode, darkMode, backgroundImage, chooseBackground
     case removeBackground, backgroundOpacity, clickDragHint, stageColor, customColor, add, delete, quoteBy
@@ -88,7 +88,7 @@ enum L10n {
             .futureTimeError: "提醒时间必须晚于现在。", .cancel: "取消", .saveReminder: "保存提醒",
             .taskName: "任务名称", .workMinutes: "工作：%d 分钟", .restMinutes: "休息：%d 分钟",
             .endSound: "结束提示音", .sound: "提示音", .customFile: "自定义：%@", .chooseAudio: "选择音频文件…",
-            .removeCustom: "移除自定义", .done: "完成"
+            .removeCustom: "移除自定义", .previewSixSeconds: "试听 6 秒", .stopPreview: "停止试听", .done: "完成"
             , .newItem: "新建", .routine: "任务", .createTask: "创建任务", .taskDuration: "时长：%d 分钟",
             .addStage: "添加阶段", .stageName: "阶段名称", .other: "其他", .savedTasks: "已保存任务",
             .theme: "主题", .appearance: "外观", .systemMode: "跟随系统", .lightMode: "浅色", .darkMode: "深色",
@@ -114,7 +114,7 @@ enum L10n {
             .futureTimeError: "The reminder time must be in the future.", .cancel: "Cancel", .saveReminder: "Save Reminder",
             .taskName: "Task name", .workMinutes: "Work: %d min", .restMinutes: "Break: %d min",
             .endSound: "End sound", .sound: "Sound", .customFile: "Custom: %@", .chooseAudio: "Choose Audio File…",
-            .removeCustom: "Remove Custom Sound", .done: "Done"
+            .removeCustom: "Remove Custom Sound", .previewSixSeconds: "Preview 6s", .stopPreview: "Stop Preview", .done: "Done"
             , .newItem: "New", .routine: "Task", .createTask: "Create Task", .taskDuration: "Duration: %d min",
             .addStage: "Add Stage", .stageName: "Stage name", .other: "Other", .savedTasks: "Saved Tasks",
             .theme: "Theme", .appearance: "Appearance", .systemMode: "System", .lightMode: "Light", .darkMode: "Dark",
@@ -140,7 +140,7 @@ enum L10n {
             .futureTimeError: "通知時刻は現在より後にしてください。", .cancel: "キャンセル", .saveReminder: "保存",
             .taskName: "タスク名", .workMinutes: "作業：%d分", .restMinutes: "休憩：%d分",
             .endSound: "終了音", .sound: "サウンド", .customFile: "カスタム：%@", .chooseAudio: "音声ファイルを選択…",
-            .removeCustom: "カスタム音を削除", .done: "完了"
+            .removeCustom: "カスタム音を削除", .previewSixSeconds: "6秒試聴", .stopPreview: "試聴を停止", .done: "完了"
             , .newItem: "新規", .routine: "タスク", .createTask: "タスクを作成", .taskDuration: "時間：%d分",
             .addStage: "ステージを追加", .stageName: "ステージ名", .other: "その他", .savedTasks: "保存済みタスク",
             .theme: "テーマ", .appearance: "外観", .systemMode: "システム", .lightMode: "ライト", .darkMode: "ダーク",
@@ -165,7 +165,7 @@ enum L10n {
             .futureTimeError: "El aviso debe ser en el futuro.", .cancel: "Cancelar", .saveReminder: "Guardar",
             .taskName: "Nombre de la tarea", .workMinutes: "Trabajo: %d min", .restMinutes: "Descanso: %d min",
             .endSound: "Sonido final", .sound: "Sonido", .customFile: "Personalizado: %@", .chooseAudio: "Elegir archivo de audio…",
-            .removeCustom: "Quitar sonido", .done: "Listo"
+            .removeCustom: "Quitar sonido", .previewSixSeconds: "Probar 6 s", .stopPreview: "Detener prueba", .done: "Listo"
             , .newItem: "Nuevo", .routine: "Tarea", .createTask: "Crear tarea", .taskDuration: "Duración: %d min",
             .addStage: "Añadir etapa", .stageName: "Nombre de etapa", .other: "Otro", .savedTasks: "Tareas guardadas",
             .theme: "Tema", .appearance: "Apariencia", .systemMode: "Sistema", .lightMode: "Claro", .darkMode: "Oscuro",
@@ -190,7 +190,7 @@ enum L10n {
             .futureTimeError: "L'heure du rappel doit être dans le futur.", .cancel: "Annuler", .saveReminder: "Enregistrer",
             .taskName: "Nom de la tâche", .workMinutes: "Travail : %d min", .restMinutes: "Pause : %d min",
             .endSound: "Son de fin", .sound: "Son", .customFile: "Personnalisé : %@", .chooseAudio: "Choisir un fichier audio…",
-            .removeCustom: "Supprimer le son", .done: "Terminé"
+            .removeCustom: "Supprimer le son", .previewSixSeconds: "Écouter 6 s", .stopPreview: "Arrêter l’écoute", .done: "Terminé"
             , .newItem: "Nouveau", .routine: "Tâche", .createTask: "Créer une tâche", .taskDuration: "Durée : %d min",
             .addStage: "Ajouter une étape", .stageName: "Nom de l’étape", .other: "Autre", .savedTasks: "Tâches enregistrées",
             .theme: "Thème", .appearance: "Apparence", .systemMode: "Système", .lightMode: "Clair", .darkMode: "Sombre",
@@ -215,7 +215,7 @@ enum L10n {
             .futureTimeError: "يجب أن يكون وقت التذكير في المستقبل.", .cancel: "إلغاء", .saveReminder: "حفظ التذكير",
             .taskName: "اسم المهمة", .workMinutes: "العمل: %d دقيقة", .restMinutes: "الاستراحة: %d دقيقة",
             .endSound: "صوت الانتهاء", .sound: "الصوت", .customFile: "مخصص: %@", .chooseAudio: "اختيار ملف صوتي…",
-            .removeCustom: "إزالة الصوت", .done: "تم"
+            .removeCustom: "إزالة الصوت", .previewSixSeconds: "معاينة 6 ثوانٍ", .stopPreview: "إيقاف المعاينة", .done: "تم"
             , .newItem: "جديد", .routine: "مهمة", .createTask: "إنشاء مهمة", .taskDuration: "المدة: %d دقيقة",
             .addStage: "إضافة مرحلة", .stageName: "اسم المرحلة", .other: "أخرى", .savedTasks: "المهام المحفوظة",
             .theme: "السمة", .appearance: "المظهر", .systemMode: "النظام", .lightMode: "فاتح", .darkMode: "داكن",
@@ -240,7 +240,7 @@ enum L10n {
             .futureTimeError: "알림 시간은 현재보다 나중이어야 합니다.", .cancel: "취소", .saveReminder: "알림 저장",
             .taskName: "작업 이름", .workMinutes: "작업: %d분", .restMinutes: "휴식: %d분",
             .endSound: "종료음", .sound: "소리", .customFile: "사용자 지정: %@", .chooseAudio: "오디오 파일 선택…",
-            .removeCustom: "사용자 지정 소리 제거", .done: "완료"
+            .removeCustom: "사용자 지정 소리 제거", .previewSixSeconds: "6초 미리듣기", .stopPreview: "미리듣기 중지", .done: "완료"
             , .newItem: "새로 만들기", .routine: "작업", .createTask: "작업 만들기", .taskDuration: "시간: %d분",
             .addStage: "단계 추가", .stageName: "단계 이름", .other: "기타", .savedTasks: "저장된 작업",
             .theme: "테마", .appearance: "화면 모드", .systemMode: "시스템", .lightMode: "라이트", .darkMode: "다크",

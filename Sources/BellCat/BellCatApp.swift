@@ -204,8 +204,11 @@ final class FocusTimer: ObservableObject {
     @Published var completedRounds = 0
     @Published var soundChoice = "Glass"
     @Published var customSoundURL: URL?
+    @Published private(set) var isPreviewingSound = false
 
     private var ticker: Timer?
+    private var previewSound: NSSound?
+    private var previewStopWorkItem: DispatchWorkItem?
     private let routinesKey = "bellcat.routines.v2"
     private let selectedKey = "bellcat.selectedRoutine.v2"
 
@@ -360,11 +363,37 @@ final class FocusTimer: ObservableObject {
         )
     }
     private func playAlarm() {
-        if let url = customSoundURL, let sound = NSSound(contentsOf: url, byReference: true) {
-            sound.play()
-        } else {
-            NSSound(named: NSSound.Name(soundChoice))?.play()
+        stopSoundPreview()
+        configuredEndSound()?.play()
+    }
+    func toggleSoundPreview() {
+        if isPreviewingSound {
+            stopSoundPreview()
+            return
         }
+        guard let sound = configuredEndSound() else { return }
+        previewStopWorkItem?.cancel()
+        previewSound = sound
+        isPreviewingSound = true
+        sound.play()
+        let stopWork = DispatchWorkItem { [weak self] in
+            Task { @MainActor in self?.stopSoundPreview() }
+        }
+        previewStopWorkItem = stopWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: stopWork)
+    }
+    func stopSoundPreview() {
+        previewStopWorkItem?.cancel()
+        previewStopWorkItem = nil
+        previewSound?.stop()
+        previewSound = nil
+        isPreviewingSound = false
+    }
+    private func configuredEndSound() -> NSSound? {
+        if soundChoice == "custom", let url = customSoundURL {
+            return NSSound(contentsOf: url, byReference: true)
+        }
+        return NSSound(named: NSSound.Name(soundChoice))
     }
     private func saveRoutines() {
         if let data = try? JSONEncoder().encode(routines) {
@@ -1068,10 +1097,23 @@ struct SettingsView: View {
 
             Divider()
             Text(L10n.text(.endSound, language.selected)).font(.headline)
-            Picker(L10n.text(.sound, language.selected), selection: $timer.soundChoice) {
-                Text("Glass").tag("Glass"); Text("Ping").tag("Ping"); Text("Funk").tag("Funk")
-                if let url = timer.customSoundURL { Text(L10n.text(.customFile, language.selected, url.lastPathComponent)).tag("custom") }
-            }.pickerStyle(.menu)
+            HStack {
+                Picker(L10n.text(.sound, language.selected), selection: $timer.soundChoice) {
+                    Text("Glass").tag("Glass"); Text("Ping").tag("Ping"); Text("Funk").tag("Funk")
+                    if let url = timer.customSoundURL { Text(L10n.text(.customFile, language.selected, url.lastPathComponent)).tag("custom") }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: timer.soundChoice) { _ in timer.stopSoundPreview() }
+                Spacer()
+                Button(action: timer.toggleSoundPreview) {
+                    Label(
+                        L10n.text(timer.isPreviewingSound ? .stopPreview : .previewSixSeconds, language.selected),
+                        systemImage: timer.isPreviewingSound ? "stop.fill" : "play.fill"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .tint(Color(hex: "56585C"))
+            }
             HStack {
                 Button(L10n.text(.chooseAudio, language.selected)) { importingSound = true }
                 Spacer()
@@ -1083,8 +1125,11 @@ struct SettingsView: View {
             if case .success(let url) = result { theme.setBackground(url) }
         }
         .fileImporter(isPresented: $importingSound, allowedContentTypes: [.audio]) { result in
-            if case .success(let url) = result { timer.customSoundURL = url; timer.soundChoice = "custom" }
+            if case .success(let url) = result {
+                timer.stopSoundPreview(); timer.customSoundURL = url; timer.soundChoice = "custom"
+            }
         }
+        .onDisappear { timer.stopSoundPreview() }
     }
 }
 

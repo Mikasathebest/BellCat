@@ -1,19 +1,19 @@
-# BellCat 2.3.0
+# BellCat 2.3.1
 
 BellCat is a multi-stage focus timer and reminder app for macOS, Windows, and Linux.
 
 ## What's new
 
-- Click any clock-ring stage to open its color controls.
-- Choose from a restrained BellCat palette or use the system color picker; every stage color is saved with its task.
-- Dragging the clock handle now produces a direction-aware, color-matched particle trail with a smooth fade.
-- Ring clicks and handle drags are separated to reduce accidental time changes.
-- The interaction and color persistence are available on macOS, Windows, and Linux.
+- Added a six-second preview button beside the end-sound selector.
+- Preview the selected preset or imported custom audio before saving your settings.
+- Short alert sounds loop during preview and stop precisely after six seconds.
+- Click the same button again to stop early; previews also stop when changing sounds, closing settings, or when a real alarm fires.
+- Windows and Linux receive matching end-sound selection and preview controls.
 
 ## Downloads
 
-- macOS Apple Silicon: `BellCat-2.3.0-macOS-arm64.dmg` or ZIP
-- Windows x64 installer: `BellCat-2.3.0-Windows-x64-Setup.exe`
+- macOS Apple Silicon: `BellCat-2.3.1-macOS-arm64.dmg` or ZIP
+- Windows x64 installer: `BellCat-2.3.1-Windows-x64-Setup.exe`
 - Windows x64 portable: `BellCat-Windows-x64.zip`
 - Linux x64: `BellCat-Linux-x64.tar.gz`
 

@@ -19,7 +19,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.3.0"
+VERSION = "2.3.1"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 
@@ -46,7 +46,7 @@ DEFAULT = {
     "tasks": [{"name": "Focus", "stages": [
         {"name": "Work", "minutes": 25, "color": "#4B4D51"},
         {"name": "Break", "minutes": 5, "color": "#A7A9AD"}]}],
-    "selected_task": 0, "reminders": [], "ambience": "ocean"
+    "selected_task": 0, "reminders": [], "ambience": "ocean", "end_sound": "Bell"
 }
 
 PRESET_TASKS = [
@@ -57,6 +57,12 @@ PRESET_TASKS = [
 
 AMBIENCE_NAMES = {"ocean": "Ocean Waves", "wind": "Wind", "rain": "Rain", "rainforest": "Rainforest Birds", "custom": "My Music"}
 COLOR_LABELS = {"中文": "阶段颜色", "English": "Stage color", "日本語": "ステージ色", "Español": "Color de etapa", "Français": "Couleur de l’étape", "العربية": "لون المرحلة", "한국어": "단계 색상"}
+END_SOUND_LABELS = {
+    "中文": ("结束提示音", "试听 6 秒", "停止试听"), "English": ("End sound", "Preview 6s", "Stop preview"),
+    "日本語": ("終了音", "6秒試聴", "試聴を停止"), "Español": ("Sonido final", "Probar 6 s", "Detener prueba"),
+    "Français": ("Son de fin", "Écouter 6 s", "Arrêter l’écoute"), "العربية": ("صوت الانتهاء", "معاينة 6 ثوانٍ", "إيقاف المعاينة"),
+    "한국어": ("종료음", "6초 미리듣기", "미리듣기 중지")
+}
 
 
 def load_config():
@@ -80,6 +86,8 @@ class BellCat(tk.Tk):
         self.ring_trail = []
         self.dragging_ring_handle = False
         self.trail_animation = None
+        self.preview_channel = None
+        self.preview_stop_job = None
         self.data = load_config()
         self.lang = LANGUAGES.get(self.data["language"], LANGUAGES["English"])
         self.title(f"BellCat {VERSION}")
@@ -183,6 +191,19 @@ class BellCat(tk.Tk):
                 elif kind == "rain": sample = white * .13 + (random.uniform(.2, .6) if random.random() > .989 else 0)
                 else: sample = previous * .2 + math.sin(t * 2 * math.pi * (1900 + 450 * math.sin(t * 3.1))) * max(0, math.sin(t * .73)) ** 18 * .16
                 value = max(-32767, min(32767, int(sample * 22000)))
+                frames.extend(struct.pack("<hh", value, int(value * .96)))
+            with wave.open(str(path), "wb") as output:
+                output.setnchannels(2); output.setsampwidth(2); output.setframerate(rate); output.writeframes(frames)
+        for kind, frequencies in {"Bell": (880, 1320), "Chime": (660, 990), "Pulse": (520, 780)}.items():
+            path = CONFIG_DIR / f"end_{kind.lower()}.wav"
+            if path.exists(): continue
+            rate, duration = 22050, 1.5
+            frames = bytearray()
+            for frame in range(int(rate * duration)):
+                t = frame / rate
+                envelope = math.exp(-3.4 * (t % .5)) * (1 if t % .5 < .42 else 0)
+                sample = sum(math.sin(2 * math.pi * frequency * t) for frequency in frequencies) * .16 * envelope
+                value = max(-32767, min(32767, int(sample * 32767)))
                 frames.extend(struct.pack("<hh", value, int(value * .96)))
             with wave.open(str(path), "wb") as output:
                 output.setnchannels(2); output.setsampwidth(2); output.setframerate(rate); output.writeframes(frames)
@@ -406,16 +427,54 @@ class BellCat(tk.Tk):
             except Exception: pass
         self.after(10, lambda: messagebox.showinfo("BellCat", title, parent=self))
 
+    def bell(self):
+        self.stop_end_sound_preview()
+        if not self.audio_ready: return
+        try: pygame.mixer.Sound(str(CONFIG_DIR / f'end_{self.data.get("end_sound", "Bell").lower()}.wav')).play()
+        except Exception: pass
+
+    def toggle_end_sound_preview(self):
+        if self.preview_channel is not None and self.preview_channel.get_busy():
+            self.stop_end_sound_preview(); return
+        if not self.audio_ready: return
+        try:
+            sound = pygame.mixer.Sound(str(CONFIG_DIR / f'end_{self.data.get("end_sound", "Bell").lower()}.wav'))
+            self.preview_channel = sound.play(loops=-1)
+            self.preview_button.configure(text=END_SOUND_LABELS.get(self.data["language"], END_SOUND_LABELS["English"])[2])
+            self.preview_stop_job = self.after(6000, self.stop_end_sound_preview)
+        except Exception: pass
+
+    def stop_end_sound_preview(self):
+        if self.preview_stop_job is not None:
+            try: self.after_cancel(self.preview_stop_job)
+            except Exception: pass
+            self.preview_stop_job = None
+        if self.preview_channel is not None: self.preview_channel.stop()
+        self.preview_channel = None
+        if hasattr(self, "preview_button") and self.preview_button.winfo_exists():
+            self.preview_button.configure(text=END_SOUND_LABELS.get(self.data["language"], END_SOUND_LABELS["English"])[1])
+
     def settings_dialog(self):
-        win = tk.Toplevel(self); win.title(self.lang["settings"]); win.geometry("360x240"); win.transient(self); win.grab_set()
+        win = tk.Toplevel(self); win.title(self.lang["settings"]); win.geometry("390x330"); win.transient(self); win.grab_set()
         ttk.Label(win, text=self.lang["language"]).pack(pady=(20,4))
         language = ttk.Combobox(win, values=list(LANGUAGES), state="readonly"); language.set(self.data["language"]); language.pack()
         ttk.Label(win, text=self.lang["theme"]).pack(pady=(18,4))
         theme = ttk.Combobox(win, values=["light", "dark"], state="readonly"); theme.set(self.data["theme"]); theme.pack()
+        end_label, preview_label, _ = END_SOUND_LABELS.get(self.data["language"], END_SOUND_LABELS["English"])
+        ttk.Label(win, text=end_label).pack(pady=(18,4))
+        sound_row = ttk.Frame(win); sound_row.pack()
+        end_sound = ttk.Combobox(sound_row, values=["Bell", "Chime", "Pulse"], state="readonly", width=12)
+        end_sound.set(self.data.get("end_sound", "Bell")); end_sound.pack(side="left", padx=5)
+        def select_end_sound(_event=None):
+            self.stop_end_sound_preview(); self.data["end_sound"] = end_sound.get(); save_config(self.data)
+        end_sound.bind("<<ComboboxSelected>>", select_end_sound)
+        self.preview_button = ttk.Button(sound_row, text=preview_label, command=self.toggle_end_sound_preview)
+        self.preview_button.pack(side="left", padx=5)
         def apply():
-            self.data["language"] = language.get(); self.data["theme"] = theme.get(); save_config(self.data)
+            self.stop_end_sound_preview(); self.data["language"] = language.get(); self.data["theme"] = theme.get(); self.data["end_sound"] = end_sound.get(); save_config(self.data)
             self.lang = LANGUAGES[self.data["language"]]; win.destroy(); self.configure_ui()
-        ttk.Button(win, text=self.lang["save"], command=apply).pack(pady=25)
+        win.protocol("WM_DELETE_WINDOW", lambda: (self.stop_end_sound_preview(), win.destroy()))
+        ttk.Button(win, text=self.lang["save"], command=apply).pack(pady=22)
 
 
 if __name__ == "__main__":
