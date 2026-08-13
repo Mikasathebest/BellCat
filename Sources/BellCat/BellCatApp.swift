@@ -918,10 +918,17 @@ struct TimerDashboard: View {
                 }.frame(width: 210, alignment: .leading)
             }
 
-            HStack(spacing: 14) {
-                Button { timer.reset() } label: { Image(systemName: "arrow.counterclockwise") }
-                    .buttonStyle(.bordered).controlSize(.large).help(L10n.text(.reset, language.selected))
-                PettableCatTimerButton()
+            HStack(spacing: 18) {
+                ZStack {
+                    HStack {
+                        Button { timer.reset() } label: { Image(systemName: "arrow.counterclockwise") }
+                            .buttonStyle(.bordered).controlSize(.large).help(L10n.text(.reset, language.selected))
+                        Spacer()
+                    }
+                    PettableCatTimerButton()
+                }
+                .frame(width: 340, height: 78)
+                Color.clear.frame(width: 210, height: 1)
             }
 
             if timer.isAwaitingStageAdvance {
@@ -980,6 +987,7 @@ private struct PettableCatTimerButton: View {
     @State private var handOffset: CGFloat = -46
     @State private var catScale = 1.0
     @State private var catRotation = 0.0
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: toggleTimer) {
@@ -998,11 +1006,15 @@ private struct PettableCatTimerButton: View {
                 .scaleEffect(catScale)
                 .rotationEffect(.degrees(catRotation))
 
-                if timer.isRunning && !isPetting {
-                    Image(systemName: "pause.fill")
-                        .font(.caption2.bold()).foregroundStyle(.white)
-                        .padding(6).background(Color.black.opacity(0.72), in: Circle())
-                        .offset(x: 25, y: 25)
+                if isHovering && !isPetting {
+                    Image(systemName: timer.isRunning ? "pause.fill" : "play.fill")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(Color.black.opacity(0.68))
+                        .frame(width: 38, height: 38)
+                        .background(Color.white.opacity(0.82), in: Circle())
+                        .overlay(Circle().stroke(.white.opacity(0.75), lineWidth: 1))
+                        .shadow(color: .black.opacity(0.16), radius: 5, y: 2)
+                        .transition(.opacity.combined(with: .scale(scale: 0.82)))
                 }
                 if timer.isAwaitingStageAdvance && !isPetting {
                     Image(systemName: "bell.fill")
@@ -1023,6 +1035,9 @@ private struct PettableCatTimerButton: View {
         }
         .buttonStyle(.plain)
         .disabled(isPetting)
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.14)) { isHovering = hovering }
+        }
         .help(L10n.text(timer.isRunning ? .pause : .start, language.selected))
         .accessibilityLabel(L10n.text(timer.isRunning ? .pause : .start, language.selected))
     }

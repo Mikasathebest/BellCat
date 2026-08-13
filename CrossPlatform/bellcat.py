@@ -20,7 +20,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.5.5"
+VERSION = "2.5.6"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -264,18 +264,23 @@ class BellCat(tk.Tk):
         self.canvas.bind("<Button-1>", self.ring_press)
         self.canvas.bind("<B1-Motion>", self.ring_drag)
         self.canvas.bind("<ButtonRelease-1>", self.ring_release)
-        controls = ttk.Frame(self.content); controls.pack(pady=8)
-        ttk.Button(controls, text=self.lang["reset"], command=self.reset).pack(side="left", padx=6)
+        controls = ttk.Frame(self.content, width=614, height=78); controls.pack(pady=8)
+        controls.pack_propagate(False)
+        ttk.Button(controls, text=self.lang["reset"], command=self.reset).place(x=95, rely=.5, anchor="center")
         icon_path = ASSET_DIR / "BellCatIcon-1024.png"
         try:
             self.cat_button_image = tk.PhotoImage(file=str(icon_path)).subsample(17, 17)
             self.start_button = tk.Button(controls, image=self.cat_button_image, command=self.toggle,
                                           bg=self.bg, activebackground=self.card, relief="flat", bd=0,
-                                          cursor="hand2", padx=4, pady=4)
+                                          cursor="hand2", padx=4, pady=4, fg="#E8E8E6",
+                                          activeforeground="#FFFFFF", font=("TkDefaultFont", 16, "bold"))
         except Exception:
             self.start_button = tk.Button(controls, text="🐱", command=self.toggle, bg=self.bg,
                                           activebackground=self.card, relief="flat", font=("TkDefaultFont", 28))
-        self.start_button.pack(side="left", padx=8)
+        self.start_button.place(x=205, rely=.5, anchor="center")
+        self.cat_hovering = False
+        self.start_button.bind("<Enter>", self.show_cat_hover)
+        self.start_button.bind("<Leave>", self.hide_cat_hover)
         self.completed_label = ttk.Label(self.content, text=self.lang["completed"].format(n=self.data["completed"]))
         self.completed_label.pack(pady=6)
         audio = ttk.Frame(self.content); audio.pack(fill="x", anchor="w", pady=6)
@@ -464,9 +469,20 @@ class BellCat(tk.Tk):
         self.data["selected_task"] = [t["name"] for t in self.data["tasks"]].index(self.task_var.get())
         save_config(self.data); self.reset(); self.show_timer()
 
+    def show_cat_hover(self, _event=None):
+        self.cat_hovering = True
+        if not getattr(self, "cat_is_being_petted", False):
+            self.start_button.configure(text="Ⅱ" if self.running else "▶", compound="center")
+
+    def hide_cat_hover(self, _event=None):
+        self.cat_hovering = False
+        if not getattr(self, "cat_is_being_petted", False):
+            self.start_button.configure(text="", compound="none")
+
     def toggle(self):
         if self.running:
             self.running = False
+            if getattr(self, "cat_hovering", False): self.start_button.configure(text="▶", compound="center")
             return
         if getattr(self, "cat_is_being_petted", False): return
         if self.awaiting_stage_advance: self.stop_stage_alarm()
@@ -477,8 +493,6 @@ class BellCat(tk.Tk):
         self.after(460, self.finish_cat_pet)
 
     def finish_cat_pet(self):
-        if hasattr(self, "start_button") and self.start_button.winfo_exists():
-            self.start_button.configure(text="", compound="none", relief="flat", padx=4, pady=4)
         self.cat_is_being_petted = False
         if self.awaiting_stage_advance:
             self.awaiting_stage_advance = False
@@ -489,6 +503,9 @@ class BellCat(tk.Tk):
             self.seconds_left = stage_seconds(self.stage)
         self.running = True
         self.last_tick = time.monotonic()
+        if hasattr(self, "start_button") and self.start_button.winfo_exists():
+            hover_text = "Ⅱ" if getattr(self, "cat_hovering", False) else ""
+            self.start_button.configure(text=hover_text, compound="center" if hover_text else "none", relief="flat", padx=4, pady=4)
 
     def reset(self):
         self.running = False; self.stop_stage_alarm(); self.awaiting_stage_advance = False

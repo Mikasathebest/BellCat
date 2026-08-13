@@ -1,16 +1,14 @@
-# BellCat 2.5.5
-
-This small layout release keeps the primary focus controls visually anchored.
+# BellCat 2.5.6
 
 ## Improvements
 
-- Left-aligns the task selector and adjacent **+** action.
-- Left-aligns white-noise playback, sound selection, and custom-music controls.
-- Shortens **Rainforest Birds** to **Birdsong** (`鸟鸣` in Chinese).
-- Adds localized white-noise names for Japanese, Spanish, French, Arabic, and Korean.
+- Aligns the cat timer button precisely with the center of the clock ring.
+- Keeps the reset action on the left without shifting the cat button off-axis.
+- Shows a soft, light play/pause control over the cat face while the pointer is hovering.
+- Preserves the existing cat-petting animation when the timer starts.
 
 ## Downloads
 
-- macOS Apple Silicon: `BellCat-2.5.5-macOS-arm64.dmg` or ZIP
-- Windows x64 installer: `BellCat-2.5.5-Windows-x64-Setup.exe`
+- macOS Apple Silicon: `BellCat-2.5.6-macOS-arm64.dmg` or ZIP
+- Windows x64 installer: `BellCat-2.5.6-Windows-x64-Setup.exe`
 - Linux x64: `BellCat-Linux-x64.tar.gz`
