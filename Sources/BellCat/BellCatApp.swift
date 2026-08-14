@@ -748,7 +748,22 @@ struct RootView: View {
         HStack(alignment: .top, spacing: 16) {
             bellCatEasterEgg
             Spacer(minLength: 12)
-            VStack(alignment: .trailing, spacing: 7) {
+            VStack(alignment: .trailing, spacing: 10) {
+                HStack(spacing: 12) {
+                    Menu {
+                        ForEach(AppLanguage.allCases) { option in
+                            Button {
+                                language.select(option)
+                                reminders.refreshNotificationLanguage()
+                            } label: { Text(option.nativeName + (option == language.selected ? " ✓" : "")) }
+                        }
+                    } label: { Label(language.selected.nativeName, systemImage: "globe") }
+                        .menuStyle(.borderlessButton).fixedSize()
+                    Button { showingSettings = true } label: { Image(systemName: "gearshape.fill") }
+                        .buttonStyle(.borderless).font(.title3).foregroundStyle(.secondary)
+                        .help(L10n.text(.settings, language.selected))
+                }
+
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("“\(quote.localized(language.selected))”")
                         .font(.callout.weight(.semibold))
@@ -768,22 +783,8 @@ struct RootView: View {
                         .foregroundStyle(Color(hex: "8C8E92"))
                 }
                 .frame(maxWidth: 390, alignment: .trailing)
+                .padding(.top, 6)
                 .onTapGesture { quote = QuoteItem.all.randomElement()! }
-
-                HStack(spacing: 12) {
-                    Menu {
-                        ForEach(AppLanguage.allCases) { option in
-                            Button {
-                                language.select(option)
-                                reminders.refreshNotificationLanguage()
-                            } label: { Text(option.nativeName + (option == language.selected ? " ✓" : "")) }
-                        }
-                    } label: { Label(language.selected.nativeName, systemImage: "globe") }
-                        .menuStyle(.borderlessButton).fixedSize()
-                    Button { showingSettings = true } label: { Image(systemName: "gearshape.fill") }
-                        .buttonStyle(.borderless).font(.title3).foregroundStyle(.secondary)
-                        .help(L10n.text(.settings, language.selected))
-                }
             }
         }
     }
@@ -903,10 +904,12 @@ struct TimerDashboard: View {
     @Binding var showingAdd: Bool
     @Binding var selectedSection: Int
     @EnvironmentObject private var timer: FocusTimer
+    @EnvironmentObject private var reminders: ReminderStore
     @EnvironmentObject private var language: LanguageManager
     @EnvironmentObject private var ambience: AmbiencePlayer
     @State private var importingMusic = false
     @State private var colorStageID: UUID?
+    @State private var remindersExpanded = false
 
     var body: some View {
         VStack(spacing: 15) {
@@ -935,33 +938,57 @@ struct TimerDashboard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 18) {
-                InteractiveRoutineRing(editingStageID: $colorStageID).frame(width: 340, height: 340)
-                if let colorStageID {
-                    RingStageColorPanel(stageID: colorStageID) {
-                        withAnimation(.easeOut(duration: 0.16)) { self.colorStageID = nil }
+            Group {
+                if sidePanelVisible {
+                    HStack(spacing: 18) {
+                        InteractiveRoutineRing(editingStageID: $colorStageID).frame(width: 340, height: 340)
+                        if let colorStageID {
+                            RingStageColorPanel(stageID: colorStageID) {
+                                withAnimation(.easeOut(duration: 0.16)) { self.colorStageID = nil }
+                            }
+                            .frame(width: 180, alignment: .leading)
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                        } else {
+                            FocusRemindersPanel(onOpen: { selectedSection = 1 }, onCollapse: {
+                                withAnimation(.easeOut(duration: 0.16)) { remindersExpanded = false }
+                            })
+                            .frame(width: 180, alignment: .leading)
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                        }
                     }
-                        .frame(width: 180, alignment: .leading)
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .frame(maxWidth: .infinity, alignment: .center)
                 } else {
-                    FocusRemindersPanel {
-                        selectedSection = 1
+                    ZStack {
+                        InteractiveRoutineRing(editingStageID: $colorStageID).frame(width: 340, height: 340)
+                        if hasUpcomingReminder {
+                            Button {
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { remindersExpanded = true }
+                            } label: {
+                                Image(systemName: "calendar.badge.clock")
+                                    .font(.title3)
+                                    .frame(width: 34, height: 34)
+                                    .background(Color.primary.opacity(0.07), in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .offset(x: 196, y: -118)
+                            .help(L10n.text(.reminders, language.selected))
+                        }
                     }
-                    .frame(width: 180, alignment: .leading)
-                    .transition(.opacity)
+                    .frame(maxWidth: .infinity)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
-            ZStack {
-                PettableCatTimerButton()
-                Button { timer.reset() } label: { Image(systemName: "arrow.counterclockwise") }
-                    .buttonStyle(.bordered).controlSize(.large)
-                    .help(L10n.text(.reset, language.selected))
-                    .offset(x: -70)
+            Group {
+                if sidePanelVisible {
+                    HStack(spacing: 18) {
+                        timerControls.frame(width: 340, height: 78)
+                        Color.clear.frame(width: 180, height: 1)
+                    }.frame(maxWidth: .infinity, alignment: .center)
+                } else {
+                    timerControls.frame(width: 340, height: 78)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
             }
-            .frame(width: 340, height: 78)
-            .frame(maxWidth: .infinity, alignment: .leading)
 
             if timer.isAwaitingStageAdvance {
                 Text("🐱  \(L10n.text(.readyToStart, language.selected, timer.nextStage.title(language.selected)))")
@@ -1009,6 +1036,31 @@ struct TimerDashboard: View {
             if case .success(let url) = result { ambience.setCustomFile(url) }
         }
         .onChange(of: timer.selectedRoutineID) { _ in colorStageID = nil }
+        .onChange(of: colorStageID) { stageID in
+            if stageID != nil { remindersExpanded = false }
+        }
+    }
+
+    private var reminderHorizon: Date {
+        Calendar.current.date(byAdding: .month, value: 6, to: Date()) ?? Date().addingTimeInterval(15_768_000)
+    }
+
+    private var hasUpcomingReminder: Bool {
+        reminders.items.contains { $0.isEnabled && $0.eventDate >= Date() && $0.eventDate <= reminderHorizon }
+    }
+
+    private var sidePanelVisible: Bool {
+        colorStageID != nil || (remindersExpanded && hasUpcomingReminder)
+    }
+
+    private var timerControls: some View {
+        ZStack {
+            PettableCatTimerButton()
+            Button { timer.reset() } label: { Image(systemName: "arrow.counterclockwise") }
+                .buttonStyle(.bordered).controlSize(.large)
+                .help(L10n.text(.reset, language.selected))
+                .offset(x: -70)
+        }
     }
 }
 
@@ -1418,9 +1470,13 @@ private struct FocusRemindersPanel: View {
     @EnvironmentObject private var store: ReminderStore
     @EnvironmentObject private var language: LanguageManager
     let onOpen: () -> Void
+    let onCollapse: () -> Void
 
     private var upcoming: [ReminderItem] {
-        Array(store.items.filter { $0.isEnabled && $0.eventDate >= Date() }.prefix(3))
+        let horizon = Calendar.current.date(byAdding: .month, value: 6, to: Date()) ?? .distantFuture
+        return Array(store.items.filter {
+            $0.isEnabled && $0.eventDate >= Date() && $0.eventDate <= horizon
+        }.prefix(3))
     }
 
     var body: some View {
@@ -1432,34 +1488,27 @@ private struct FocusRemindersPanel: View {
                 Button(action: onOpen) {
                     Image(systemName: "arrow.right.circle.fill")
                 }.buttonStyle(.plain).foregroundStyle(.secondary)
+                Button(action: onCollapse) {
+                    Image(systemName: "chevron.right.circle.fill")
+                }.buttonStyle(.plain).foregroundStyle(.secondary)
             }
 
-            if upcoming.isEmpty {
-                Spacer(minLength: 8)
-                Image(systemName: "bell.slash").font(.title2).foregroundStyle(.secondary)
-                Text(L10n.text(.noReminders, language.selected))
-                    .font(.caption).foregroundStyle(.secondary)
-                Button(L10n.text(.addReminderNow, language.selected), action: onOpen)
-                    .buttonStyle(.borderless).font(.caption.weight(.semibold))
-                Spacer(minLength: 8)
-            } else {
-                ForEach(upcoming) { item in
-                    Button(action: onOpen) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 5) {
-                                Image(systemName: item.style == .alarm ? "alarm.fill" : "bell.fill")
-                                Text(item.title).lineLimit(1)
-                            }
-                            .font(.caption.weight(.semibold))
-                            Text(L10n.date(item.eventDate, language.selected, long: false))
-                                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            ForEach(upcoming) { item in
+                Button(action: onOpen) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 5) {
+                            Image(systemName: item.style == .alarm ? "alarm.fill" : "bell.fill")
+                            Text(item.title).lineLimit(1)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }.buttonStyle(.plain)
-                    if item.id != upcoming.last?.id { Divider() }
-                }
-                Spacer(minLength: 0)
+                        .font(.caption.weight(.semibold))
+                        Text(L10n.date(item.eventDate, language.selected, long: false))
+                            .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }.buttonStyle(.plain)
+                if item.id != upcoming.last?.id { Divider() }
             }
+            Spacer(minLength: 0)
         }
         .padding(14)
         .frame(minHeight: 190, alignment: .top)

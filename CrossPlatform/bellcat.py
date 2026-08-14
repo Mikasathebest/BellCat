@@ -20,7 +20,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.5.9"
+VERSION = "2.5.10"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -174,14 +174,15 @@ class BellCat(tk.Tk):
                                    fg=self.fg, bg=self.bg, cursor="hand2", padx=4)
         self.logo_label.pack(side="left", anchor="n")
         self.logo_label.bind("<Button-1>", self.trigger_logo_easter_egg)
-        ttk.Button(top, text="⚙", width=3, command=self.settings_dialog).pack(side="right", anchor="n", padx=(8, 0))
+        header_right = ttk.Frame(top); header_right.pack(side="right", anchor="ne")
+        ttk.Button(header_right, text="⚙", width=3, command=self.settings_dialog).pack(anchor="e")
         quote = QUOTES[int(time.time()) % len(QUOTES)]
         localized = quote.get(self.data["language"], quote["en"])
         quote_text = f'“{localized}”'
         if self.data["language"] != "English": quote_text += f'\n“{quote["en"]}”'
         quote_text += f'\n— {quote["source"]}'
-        ttk.Label(top, text=quote_text, font=("TkDefaultFont", 9), wraplength=390,
-                  justify="right", anchor="e").pack(side="right", anchor="ne", padx=(18, 0))
+        ttk.Label(header_right, text=quote_text, font=("TkDefaultFont", 9), wraplength=390,
+                  justify="right", anchor="e").pack(anchor="e", pady=(10, 0))
 
         nav = ttk.Frame(self); nav.pack(pady=4)
         ttk.Button(nav, text=self.lang["timer"], command=self.show_timer).pack(side="left", padx=4)
@@ -262,12 +263,13 @@ class BellCat(tk.Tk):
         self.canvas = tk.Canvas(ring_row, width=410, height=410, bg=self.bg, highlightthickness=0)
         self.canvas.pack(side="left")
         self.color_panel = ttk.Frame(ring_row, width=165, height=260)
-        self.color_panel.pack(side="left", padx=(14, 0), fill="y")
         self.color_panel.pack_propagate(False)
+        self.reminder_toggle = ttk.Button(self.canvas, text="◷", width=2, command=self.show_upcoming_panel)
         self.canvas.bind("<Button-1>", self.ring_press)
         self.canvas.bind("<B1-Motion>", self.ring_drag)
         self.canvas.bind("<ButtonRelease-1>", self.ring_release)
-        controls = ttk.Frame(self.content, width=410, height=78); controls.pack(anchor="w", pady=8)
+        controls = ttk.Frame(self.content, width=410, height=78); controls.pack(pady=8)
+        self.controls = controls
         controls.pack_propagate(False)
         ttk.Button(controls, text=self.lang["reset"], command=self.reset).place(x=135, rely=.5, anchor="center")
         icon_path = ASSET_DIR / "BellCatIcon-1024.png"
@@ -284,7 +286,7 @@ class BellCat(tk.Tk):
         self.cat_hovering = False
         self.start_button.bind("<Enter>", self.show_cat_hover)
         self.start_button.bind("<Leave>", self.hide_cat_hover)
-        self.show_upcoming_panel()
+        self.collapse_side_panel()
         self.completed_label = ttk.Label(self.content, text=self.lang["completed"].format(n=self.data["completed"]))
         self.completed_label.pack(pady=6)
         audio = ttk.Frame(self.content); audio.pack(fill="x", anchor="w", pady=6)
@@ -400,7 +402,7 @@ class BellCat(tk.Tk):
                 cursor += stage_seconds(stage)
                 if target < cursor:
                     if self.color_stage_index == index:
-                        self.show_upcoming_panel()
+                        self.collapse_side_panel()
                         return
                     self.stage_index = index
                     self.seconds_left = stage_seconds(stage)
@@ -442,11 +444,14 @@ class BellCat(tk.Tk):
     def show_stage_color_panel(self):
         if not hasattr(self, "color_panel") or not self.color_panel.winfo_exists(): return
         self.color_stage_index = self.stage_index
+        if hasattr(self, "reminder_toggle"): self.reminder_toggle.place_forget()
+        if not self.color_panel.winfo_manager(): self.color_panel.pack(side="left", padx=(14, 0), fill="y")
+        if hasattr(self, "controls"): self.controls.configure(width=589)
         for child in self.color_panel.winfo_children(): child.destroy()
         label = COLOR_LABELS.get(self.data["language"], "Stage color")
         title = ttk.Frame(self.color_panel); title.pack(fill="x", pady=(42, 3))
         ttk.Label(title, text=label, font=("TkDefaultFont", 12, "bold")).pack(side="left")
-        ttk.Button(title, text="×", width=2, command=self.show_upcoming_panel).pack(side="right")
+        ttk.Button(title, text="×", width=2, command=self.collapse_side_panel).pack(side="right")
         ttk.Label(self.color_panel, text=self.stage["name"]).pack(anchor="w", pady=(0, 12))
         palette = ttk.Frame(self.color_panel); palette.pack(anchor="w")
         for index, color in enumerate(["#4B4D51", "#74767A", "#A7A9AD", "#D1CEC6", "#6B7280", "#8B6F47", "#597A6A", "#7A667E"]):
@@ -462,29 +467,44 @@ class BellCat(tk.Tk):
 
     def show_upcoming_panel(self):
         if not hasattr(self, "color_panel") or not self.color_panel.winfo_exists(): return
+        upcoming = self.upcoming_six_months()
+        if not upcoming:
+            self.collapse_side_panel()
+            return
         self.color_stage_index = None
+        if hasattr(self, "reminder_toggle"): self.reminder_toggle.place_forget()
+        if not self.color_panel.winfo_manager(): self.color_panel.pack(side="left", padx=(14, 0), fill="y")
+        if hasattr(self, "controls"): self.controls.configure(width=589)
         for child in self.color_panel.winfo_children(): child.destroy()
         title = ttk.Frame(self.color_panel); title.pack(fill="x", pady=(42, 8))
         ttk.Label(title, text=f"◷ {self.lang['reminders']}", font=("TkDefaultFont", 12, "bold")).pack(side="left")
+        ttk.Button(title, text="‹", width=2, command=self.collapse_side_panel).pack(side="right")
         ttk.Button(title, text="→", width=2, command=self.show_reminders).pack(side="right")
-        upcoming = []
-        for reminder in self.data.get("reminders", []):
-            try:
-                event = datetime.fromisoformat(reminder["event"])
-                if event >= datetime.now(): upcoming.append((event, reminder))
-            except Exception:
-                continue
-        upcoming.sort(key=lambda value: value[0])
-        if not upcoming:
-            ttk.Label(self.color_panel, text=self.lang["no_reminders"], wraplength=145,
-                      foreground="#888888").pack(anchor="w", pady=10)
-            ttk.Button(self.color_panel, text=self.lang["add" if "add" in self.lang else "new"],
-                       command=self.show_reminders).pack(anchor="w")
-            return
         for event, reminder in upcoming[:3]:
             icon = "⏰" if reminder.get("style") == "alarm" else "🔔"
             ttk.Button(self.color_panel, text=f"{icon} {reminder['title']}\n{event:%m-%d %H:%M}",
                        command=self.show_reminders).pack(fill="x", pady=2)
+
+    def upcoming_six_months(self):
+        now = datetime.now()
+        horizon = now + timedelta(days=183)
+        upcoming = []
+        for reminder in self.data.get("reminders", []):
+            try:
+                event = datetime.fromisoformat(reminder["event"])
+                if now <= event <= horizon and reminder.get("enabled", True): upcoming.append((event, reminder))
+            except Exception:
+                continue
+        upcoming.sort(key=lambda value: value[0])
+        return upcoming
+
+    def collapse_side_panel(self):
+        self.color_stage_index = None
+        if hasattr(self, "color_panel") and self.color_panel.winfo_manager(): self.color_panel.pack_forget()
+        if hasattr(self, "controls"): self.controls.configure(width=410)
+        if hasattr(self, "reminder_toggle"):
+            if self.upcoming_six_months(): self.reminder_toggle.place(x=380, y=58, anchor="center")
+            else: self.reminder_toggle.place_forget()
 
     def begin_ring_edit(self, kind):
         if self.inline_editor is not None:
