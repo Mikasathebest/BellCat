@@ -20,7 +20,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.5.8"
+VERSION = "2.5.9"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -117,6 +117,9 @@ class BellCat(tk.Tk):
         super().__init__()
         self.ring_trail = []
         self.dragging_ring_handle = False
+        self.color_stage_index = None
+        self.inline_editor = None
+        self.editor_was_running = False
         self.trail_animation = None
         self.preview_channel = None
         self.preview_stop_job = None
@@ -375,6 +378,10 @@ class BellCat(tk.Tk):
         return ((math.atan2(y - 205, x - 205) + math.pi / 2) % (2 * math.pi)) / (2 * math.pi)
 
     def ring_press(self, event):
+        distance_from_center = math.hypot(event.x - 205, event.y - 205)
+        if distance_from_center < 112:
+            self.begin_ring_edit("name" if event.y < 194 else "duration")
+            return
         fraction = self.ring_fraction(event.x, event.y)
         current_total = sum(stage_seconds(s) for s in self.task["stages"])
         elapsed_before = sum(stage_seconds(s) for s in self.task["stages"][:self.stage_index])
@@ -392,6 +399,9 @@ class BellCat(tk.Tk):
             for index, stage in enumerate(self.task["stages"]):
                 cursor += stage_seconds(stage)
                 if target < cursor:
+                    if self.color_stage_index == index:
+                        self.show_upcoming_panel()
+                        return
                     self.stage_index = index
                     self.seconds_left = stage_seconds(stage)
                     self.draw_ring()
@@ -431,6 +441,7 @@ class BellCat(tk.Tk):
 
     def show_stage_color_panel(self):
         if not hasattr(self, "color_panel") or not self.color_panel.winfo_exists(): return
+        self.color_stage_index = self.stage_index
         for child in self.color_panel.winfo_children(): child.destroy()
         label = COLOR_LABELS.get(self.data["language"], "Stage color")
         title = ttk.Frame(self.color_panel); title.pack(fill="x", pady=(42, 3))
@@ -442,10 +453,16 @@ class BellCat(tk.Tk):
             button = tk.Button(palette, bg=color, activebackground=color, width=3, height=1, relief="flat",
                                command=lambda value=color: self.set_stage_color(value))
             button.grid(row=index // 4, column=index % 4, padx=3, pady=3)
-        ttk.Button(self.color_panel, text="…", width=5, command=self.choose_stage_color).pack(anchor="w", pady=(10, 0))
+        rainbow = tk.Canvas(self.color_panel, width=32, height=32, bg=self.bg, highlightthickness=0, cursor="hand2")
+        for index, color in enumerate(["#FF4D4D", "#FFB84D", "#F5E64D", "#55C96B", "#4DC7E8", "#5577E8", "#A45DE8", "#E85DAA"]):
+            rainbow.create_arc(3, 3, 29, 29, start=index * 45, extent=48, style="arc", width=7, outline=color)
+        rainbow.create_oval(10, 10, 22, 22, fill="#F3F3F1", outline="")
+        rainbow.bind("<Button-1>", lambda _event: self.choose_stage_color())
+        rainbow.pack(anchor="w", pady=(10, 0))
 
     def show_upcoming_panel(self):
         if not hasattr(self, "color_panel") or not self.color_panel.winfo_exists(): return
+        self.color_stage_index = None
         for child in self.color_panel.winfo_children(): child.destroy()
         title = ttk.Frame(self.color_panel); title.pack(fill="x", pady=(42, 8))
         ttk.Label(title, text=f"◷ {self.lang['reminders']}", font=("TkDefaultFont", 12, "bold")).pack(side="left")
@@ -468,6 +485,57 @@ class BellCat(tk.Tk):
             icon = "⏰" if reminder.get("style") == "alarm" else "🔔"
             ttk.Button(self.color_panel, text=f"{icon} {reminder['title']}\n{event:%m-%d %H:%M}",
                        command=self.show_reminders).pack(fill="x", pady=2)
+
+    def begin_ring_edit(self, kind):
+        if self.inline_editor is not None:
+            self.finish_ring_edit(commit=True)
+        self.editor_was_running = self.running
+        self.running = False
+        self.last_tick = time.monotonic()
+        entry = tk.Entry(self.canvas, justify="center", relief="flat", bd=1,
+                         font=("TkDefaultFont", 15 if kind == "name" else 24, "bold"),
+                         bg=self.card, fg=self.fg, insertbackground=self.fg)
+        entry.edit_kind = kind
+        if kind == "name":
+            entry.insert(0, self.stage["name"])
+            entry.place(x=205, y=170, anchor="center", width=184, height=32)
+        else:
+            duration = stage_seconds(self.stage)
+            entry.insert(0, f"{duration//3600:02d}:{(duration//60)%60:02d}:{duration%60:02d}")
+            entry.place(x=205, y=215, anchor="center", width=190, height=48)
+        self.inline_editor = entry
+        entry.bind("<Return>", lambda _event: self.finish_ring_edit(commit=True))
+        entry.bind("<Escape>", lambda _event: self.finish_ring_edit(commit=False))
+        entry.bind("<FocusOut>", lambda _event: self.finish_ring_edit(commit=True))
+        entry.focus_set(); entry.selection_range(0, "end")
+
+    def finish_ring_edit(self, commit=True):
+        entry = self.inline_editor
+        if entry is None: return
+        self.inline_editor = None
+        value = entry.get().strip()
+        kind = entry.edit_kind
+        try: entry.destroy()
+        except Exception: pass
+        if commit and kind == "name" and value:
+            self.stage["name"] = value
+            save_config(self.data)
+        elif commit and kind == "duration":
+            try:
+                parts = [max(0, int(part.strip() or 0)) for part in value.split(":")]
+                if len(parts) == 3: hours, minutes, seconds = parts
+                elif len(parts) == 2: hours, (minutes, seconds) = 0, parts
+                else: hours, minutes, seconds = 0, parts[0], 0
+                duration = max(1, min(99, hours) * 3600 + min(59, minutes) * 60 + min(59, seconds))
+                self.stage["seconds"] = duration
+                self.seconds_left = duration
+                save_config(self.data)
+            except Exception:
+                pass
+        self.draw_ring()
+        if self.editor_was_running:
+            self.running = True
+            self.last_tick = time.monotonic()
 
     def set_stage_color(self, color):
         self.stage["color"] = color.upper()

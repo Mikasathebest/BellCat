@@ -1,17 +1,18 @@
-# BellCat 2.5.8
+# BellCat 2.5.9
 
 ## Improvements
 
-- Moves the BellCat brand and interactive easter egg to the upper-left corner.
-- Moves the localized quote and its English original to the upper-right corner.
-- Adds a compact upcoming-reminders card beside the timer ring.
-- Shows up to three enabled future reminders with localized dates.
-- Opens the full reminders screen from the card, including an empty-state add action.
-- Temporarily replaces the reminder card with stage colors when a ring segment is selected; closing colors restores reminders.
-- Applies the same header and reminder-panel structure to Windows and Linux.
+- Click the stage name in the ring center to describe what you want to do during that block.
+- Click the countdown to edit hours, minutes, and seconds inline.
+- Saves center edits automatically on Return or when focus leaves the field.
+- Makes the color-panel close action clearer.
+- Clicking the currently selected ring segment again also closes its color panel.
+- Replaces the dark custom-color well with a recognizable rainbow color sphere.
+- Keeps the color workflow compact: preset circles, one rainbow sphere, and no extra menu row.
+- Adds equivalent inline editing and color behavior to Windows and Linux.
 
 ## Downloads
 
-- macOS Apple Silicon: `BellCat-2.5.8-macOS-arm64.dmg` or ZIP
-- Windows x64 installer: `BellCat-2.5.8-Windows-x64-Setup.exe`
+- macOS Apple Silicon: `BellCat-2.5.9-macOS-arm64.dmg` or ZIP
+- Windows x64 installer: `BellCat-2.5.9-Windows-x64-Setup.exe`
 - Linux x64: `BellCat-Linux-x64.tar.gz`

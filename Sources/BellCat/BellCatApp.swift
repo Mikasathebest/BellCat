@@ -180,7 +180,7 @@ struct TaskStage: Identifiable, Codable, Equatable {
     }
 
     func title(_ language: AppLanguage) -> String {
-        kind == .other && !customName.isEmpty ? customName : kind.title(language)
+        customName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? kind.title(language) : customName
     }
 }
 
@@ -340,6 +340,23 @@ final class FocusTimer: ObservableObject {
         guard let routineIndex = routines.firstIndex(where: { $0.id == selectedRoutineID }),
               let stageIndex = routines[routineIndex].stages.firstIndex(where: { $0.id == stageID }) else { return }
         routines[routineIndex].stages[stageIndex].colorHex = hex
+        saveRoutines()
+    }
+    func updateStageName(_ stageID: UUID, name: String) {
+        guard let routineIndex = routines.firstIndex(where: { $0.id == selectedRoutineID }),
+              let stageIndex = routines[routineIndex].stages.firstIndex(where: { $0.id == stageID }) else { return }
+        routines[routineIndex].stages[stageIndex].customName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        saveRoutines()
+    }
+    func updateStageDuration(_ stageID: UUID, seconds: Int) {
+        guard let routineIndex = routines.firstIndex(where: { $0.id == selectedRoutineID }),
+              let stageIndex = routines[routineIndex].stages.firstIndex(where: { $0.id == stageID }) else { return }
+        let duration = max(1, seconds)
+        routines[routineIndex].stages[stageIndex].durationSeconds = duration
+        if currentStageIndex == stageIndex {
+            cancelStageCompletion()
+            secondsLeft = duration
+        }
         saveRoutines()
     }
     func seek(to fraction: Double) {
@@ -886,7 +903,6 @@ struct TimerDashboard: View {
     @Binding var showingAdd: Bool
     @Binding var selectedSection: Int
     @EnvironmentObject private var timer: FocusTimer
-    @EnvironmentObject private var reminders: ReminderStore
     @EnvironmentObject private var language: LanguageManager
     @EnvironmentObject private var ambience: AmbiencePlayer
     @State private var importingMusic = false
@@ -1096,7 +1112,6 @@ private struct PettableCatTimerButton: View {
 struct InteractiveRoutineRing: View {
     @Binding var editingStageID: UUID?
     @EnvironmentObject private var timer: FocusTimer
-    @EnvironmentObject private var language: LanguageManager
     @State private var trail: [RingTrailPoint] = []
     @State private var isDraggingHandle = false
 
@@ -1130,11 +1145,7 @@ struct InteractiveRoutineRing: View {
                             radius: isDraggingHandle ? 12 : 4)
                     .gesture(handleDragGesture(in: proxy.size))
 
-                VStack(spacing: 7) {
-                    Text(timer.currentStage.title(language.selected)).font(.headline)
-                        .foregroundStyle(Color(hex: timer.currentStage.colorHex))
-                    Text(timer.remainingText).font(.system(size: 58, weight: .medium, design: .rounded)).monospacedDigit()
-                }
+                EditableRingCenter()
             }
             .coordinateSpace(name: "BellCatRing")
             .simultaneousGesture(
@@ -1148,9 +1159,14 @@ struct InteractiveRoutineRing: View {
                           hypot(value.location.x - handlePoint.x, value.location.y - handlePoint.y) > 30 else { return }
                     let index = stageIndex(at: ringFraction(at: value.location, in: proxy.size))
                     guard timer.currentRoutine.stages.indices.contains(index) else { return }
+                    let stageID = timer.currentRoutine.stages[index].id
+                    if editingStageID == stageID {
+                        withAnimation(.easeOut(duration: 0.16)) { editingStageID = nil }
+                        return
+                    }
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
                         timer.selectStage(index)
-                        editingStageID = timer.currentRoutine.stages[index].id
+                        editingStageID = stageID
                     }
                 }
             )
@@ -1230,6 +1246,115 @@ struct InteractiveRoutineRing: View {
     }
 }
 
+private struct EditableRingCenter: View {
+    private enum DurationField: Hashable { case hours, minutes, seconds }
+
+    @EnvironmentObject private var timer: FocusTimer
+    @EnvironmentObject private var language: LanguageManager
+    @State private var editingName = false
+    @State private var editingDuration = false
+    @State private var draftName = ""
+    @State private var hours = 0
+    @State private var minutes = 0
+    @State private var seconds = 0
+    @FocusState private var nameFocused: Bool
+    @FocusState private var durationFocus: DurationField?
+
+    var body: some View {
+        VStack(spacing: 7) {
+            if editingName {
+                TextField(L10n.text(.stageName, language.selected), text: $draftName)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.center)
+                    .font(.headline)
+                    .frame(width: 178)
+                    .focused($nameFocused)
+                    .onSubmit { nameFocused = false }
+            } else {
+                Button {
+                    draftName = timer.currentStage.title(language.selected)
+                    editingName = true
+                    DispatchQueue.main.async { nameFocused = true }
+                } label: {
+                    Text(timer.currentStage.title(language.selected))
+                        .font(.headline).lineLimit(1)
+                        .foregroundStyle(Color(hex: timer.currentStage.colorHex))
+                        .frame(maxWidth: 180)
+                }
+                .buttonStyle(.plain)
+                .help(L10n.text(.stageName, language.selected))
+            }
+
+            if editingDuration {
+                HStack(spacing: 5) {
+                    durationField($hours, suffix: "h", focus: .hours, range: 0...99)
+                    durationField($minutes, suffix: "m", focus: .minutes, range: 0...59)
+                    durationField($seconds, suffix: "s", focus: .seconds, range: 0...59)
+                }
+            } else {
+                Button {
+                    let duration = timer.currentStage.durationSeconds
+                    hours = duration / 3600
+                    minutes = (duration / 60) % 60
+                    seconds = duration % 60
+                    editingDuration = true
+                    DispatchQueue.main.async { durationFocus = .minutes }
+                } label: {
+                    Text(timer.remainingText)
+                        .font(.system(size: 58, weight: .medium, design: .rounded))
+                        .monospacedDigit()
+                }
+                .buttonStyle(.plain)
+                .help(L10n.text(.taskDuration, language.selected, timer.currentStage.durationSeconds / 60))
+            }
+        }
+        .onChange(of: nameFocused) { focused in
+            if !focused && editingName {
+                let stage = timer.currentStage
+                let trimmed = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
+                let savedName = stage.customName.isEmpty && trimmed == stage.kind.title(language.selected) ? "" : trimmed
+                timer.updateStageName(stage.id, name: savedName)
+                editingName = false
+            }
+        }
+        .onChange(of: durationFocus) { focused in
+            if focused == nil && editingDuration {
+                commitDuration()
+            }
+        }
+        .onChange(of: timer.currentStage.id) { _ in
+            editingName = false
+            editingDuration = false
+            nameFocused = false
+            durationFocus = nil
+        }
+    }
+
+    private func durationField(
+        _ value: Binding<Int>, suffix: String, focus: DurationField, range: ClosedRange<Int>
+    ) -> some View {
+        HStack(spacing: 2) {
+            TextField("0", value: value, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .frame(width: 40)
+                .focused($durationFocus, equals: focus)
+                .onSubmit { durationFocus = nil }
+                .onChange(of: value.wrappedValue) { newValue in
+                    value.wrappedValue = min(range.upperBound, max(range.lowerBound, newValue))
+                }
+            Text(suffix).font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    private func commitDuration() {
+        timer.updateStageDuration(timer.currentStage.id,
+                                  seconds: max(1, hours * 3600 + minutes * 60 + seconds))
+        editingDuration = false
+    }
+}
+
 private struct RingTrailPoint {
     let fraction: Double
     let createdAt: Date
@@ -1252,8 +1377,11 @@ private struct RingStageColorPanel: View {
                 Text(L10n.text(.stageColor, language.selected)).font(.headline)
                 Spacer()
                 Button(action: onClose) {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                }.buttonStyle(.plain)
+                    Image(systemName: "xmark")
+                        .font(.caption.bold()).foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                        .background(Color.primary.opacity(0.08), in: Circle())
+                }.buttonStyle(.plain).help(L10n.text(.done, language.selected))
             }
             Text(stage.title(language.selected))
                 .font(.subheadline.weight(.semibold))
@@ -1266,12 +1394,20 @@ private struct RingStageColorPanel: View {
                             .frame(width: 27, height: 27)
                     }.buttonStyle(.plain)
                 }
+                ColorPicker("", selection: Binding(get: { Color(hex: stage.colorHex) },
+                                                    set: { timer.updateStageColor(stage.id, hex: $0.hexString) }),
+                            supportsOpacity: false)
+                    .labelsHidden()
+                    .frame(width: 27, height: 27)
+                    .overlay {
+                        Circle()
+                            .fill(AngularGradient(colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red],
+                                                  center: .center))
+                            .overlay(Circle().stroke(.white.opacity(0.7), lineWidth: 1))
+                            .allowsHitTesting(false)
+                    }
+                    .help(L10n.text(.customColor, language.selected))
             }
-            ColorPicker(L10n.text(.customColor, language.selected),
-                        selection: Binding(get: { Color(hex: stage.colorHex) },
-                                           set: { timer.updateStageColor(stage.id, hex: $0.hexString) }),
-                        supportsOpacity: false)
-                .font(.caption)
         }
         .padding(16)
         .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
