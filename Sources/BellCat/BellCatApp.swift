@@ -702,7 +702,11 @@ struct RootView: View {
                 }
                 .pickerStyle(.segmented).frame(width: 260)
 
-                if section == 0 { TimerDashboard(showingAdd: $showingAdd) } else { RemindersDashboard() }
+                if section == 0 {
+                    TimerDashboard(showingAdd: $showingAdd, selectedSection: $section)
+                } else {
+                    RemindersDashboard()
+                }
             }
             .padding(24)
         }
@@ -725,41 +729,44 @@ struct RootView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 9) {
-                VStack(alignment: .leading, spacing: 4) {
+            bellCatEasterEgg
+            Spacer(minLength: 12)
+            VStack(alignment: .trailing, spacing: 7) {
+                VStack(alignment: .trailing, spacing: 4) {
                     Text("“\(quote.localized(language.selected))”")
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(.primary)
+                        .multilineTextAlignment(.trailing)
                         .lineLimit(3)
                     if language.selected != .en {
                         Text("“\(quote.english)”")
                             .font(.caption)
                             .italic()
                             .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
                             .lineLimit(2)
                     }
                     Text(L10n.text(.quoteBy, language.selected, quote.source))
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(Color(hex: "8C8E92"))
                 }
-                .frame(maxWidth: 390, alignment: .leading)
-            }
-            .onTapGesture { quote = QuoteItem.all.randomElement()! }
-            Spacer(minLength: 12)
-            HStack(spacing: 12) {
-                bellCatEasterEgg
-                Menu {
-                    ForEach(AppLanguage.allCases) { option in
-                        Button {
-                            language.select(option)
-                            reminders.refreshNotificationLanguage()
-                        } label: { Text(option.nativeName + (option == language.selected ? " ✓" : "")) }
-                    }
-                } label: { Label(language.selected.nativeName, systemImage: "globe") }
-                    .menuStyle(.borderlessButton).fixedSize()
-                Button { showingSettings = true } label: { Image(systemName: "gearshape.fill") }
-                    .buttonStyle(.borderless).font(.title3).foregroundStyle(.secondary)
-                    .help(L10n.text(.settings, language.selected))
+                .frame(maxWidth: 390, alignment: .trailing)
+                .onTapGesture { quote = QuoteItem.all.randomElement()! }
+
+                HStack(spacing: 12) {
+                    Menu {
+                        ForEach(AppLanguage.allCases) { option in
+                            Button {
+                                language.select(option)
+                                reminders.refreshNotificationLanguage()
+                            } label: { Text(option.nativeName + (option == language.selected ? " ✓" : "")) }
+                        }
+                    } label: { Label(language.selected.nativeName, systemImage: "globe") }
+                        .menuStyle(.borderlessButton).fixedSize()
+                    Button { showingSettings = true } label: { Image(systemName: "gearshape.fill") }
+                        .buttonStyle(.borderless).font(.title3).foregroundStyle(.secondary)
+                        .help(L10n.text(.settings, language.selected))
+                }
             }
         }
     }
@@ -877,7 +884,9 @@ struct RootView: View {
 
 struct TimerDashboard: View {
     @Binding var showingAdd: Bool
+    @Binding var selectedSection: Int
     @EnvironmentObject private var timer: FocusTimer
+    @EnvironmentObject private var reminders: ReminderStore
     @EnvironmentObject private var language: LanguageManager
     @EnvironmentObject private var ambience: AmbiencePlayer
     @State private var importingMusic = false
@@ -913,9 +922,17 @@ struct TimerDashboard: View {
             HStack(spacing: 18) {
                 InteractiveRoutineRing(editingStageID: $colorStageID).frame(width: 340, height: 340)
                 if let colorStageID {
-                    RingStageColorPanel(stageID: colorStageID)
+                    RingStageColorPanel(stageID: colorStageID) {
+                        withAnimation(.easeOut(duration: 0.16)) { self.colorStageID = nil }
+                    }
                         .frame(width: 180, alignment: .leading)
                         .transition(.opacity.combined(with: .move(edge: .trailing)))
+                } else {
+                    FocusRemindersPanel {
+                        selectedSection = 1
+                    }
+                    .frame(width: 180, alignment: .leading)
+                    .transition(.opacity)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1220,6 +1237,7 @@ private struct RingTrailPoint {
 
 private struct RingStageColorPanel: View {
     let stageID: UUID
+    let onClose: () -> Void
     @EnvironmentObject private var timer: FocusTimer
     @EnvironmentObject private var language: LanguageManager
     private let palette = ["34363A", "5B5E63", "8F939A", "C4C7CC", "8BA7B5", "A899B4"]
@@ -1230,7 +1248,13 @@ private struct RingStageColorPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(L10n.text(.stageColor, language.selected)).font(.headline)
+            HStack {
+                Text(L10n.text(.stageColor, language.selected)).font(.headline)
+                Spacer()
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }.buttonStyle(.plain)
+            }
             Text(stage.title(language.selected))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color(hex: stage.colorHex))
@@ -1250,6 +1274,59 @@ private struct RingStageColorPanel: View {
                 .font(.caption)
         }
         .padding(16)
+        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+private struct FocusRemindersPanel: View {
+    @EnvironmentObject private var store: ReminderStore
+    @EnvironmentObject private var language: LanguageManager
+    let onOpen: () -> Void
+
+    private var upcoming: [ReminderItem] {
+        Array(store.items.filter { $0.isEnabled && $0.eventDate >= Date() }.prefix(3))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            HStack {
+                Label(L10n.text(.reminders, language.selected), systemImage: "calendar.badge.clock")
+                    .font(.headline)
+                Spacer()
+                Button(action: onOpen) {
+                    Image(systemName: "arrow.right.circle.fill")
+                }.buttonStyle(.plain).foregroundStyle(.secondary)
+            }
+
+            if upcoming.isEmpty {
+                Spacer(minLength: 8)
+                Image(systemName: "bell.slash").font(.title2).foregroundStyle(.secondary)
+                Text(L10n.text(.noReminders, language.selected))
+                    .font(.caption).foregroundStyle(.secondary)
+                Button(L10n.text(.addReminderNow, language.selected), action: onOpen)
+                    .buttonStyle(.borderless).font(.caption.weight(.semibold))
+                Spacer(minLength: 8)
+            } else {
+                ForEach(upcoming) { item in
+                    Button(action: onOpen) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 5) {
+                                Image(systemName: item.style == .alarm ? "alarm.fill" : "bell.fill")
+                                Text(item.title).lineLimit(1)
+                            }
+                            .font(.caption.weight(.semibold))
+                            Text(L10n.date(item.eventDate, language.selected, long: false))
+                                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }.buttonStyle(.plain)
+                    if item.id != upcoming.last?.id { Divider() }
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(14)
+        .frame(minHeight: 190, alignment: .top)
         .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

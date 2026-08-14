@@ -20,7 +20,7 @@ from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 import pygame
 
 APP_NAME = "BellCat"
-VERSION = "2.5.7"
+VERSION = "2.5.8"
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home() / ".config")) / "BellCat"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -167,18 +167,18 @@ class BellCat(tk.Tk):
         style.configure("TButton", padding=8)
 
         top = ttk.Frame(self); top.pack(fill="x", padx=22, pady=18)
-        left = ttk.Frame(top); left.pack(side="left", fill="x", expand=True)
+        self.logo_label = tk.Label(top, text="✦ BellCat", font=("TkDefaultFont", 20, "bold"),
+                                   fg=self.fg, bg=self.bg, cursor="hand2", padx=4)
+        self.logo_label.pack(side="left", anchor="n")
+        self.logo_label.bind("<Button-1>", self.trigger_logo_easter_egg)
+        ttk.Button(top, text="⚙", width=3, command=self.settings_dialog).pack(side="right", anchor="n", padx=(8, 0))
         quote = QUOTES[int(time.time()) % len(QUOTES)]
         localized = quote.get(self.data["language"], quote["en"])
         quote_text = f'“{localized}”'
         if self.data["language"] != "English": quote_text += f'\n“{quote["en"]}”'
         quote_text += f'\n— {quote["source"]}'
-        ttk.Label(left, text=quote_text, font=("TkDefaultFont", 9), wraplength=430, justify="left").pack(anchor="w", pady=(8, 0))
-        self.logo_label = tk.Label(top, text="✦ BellCat", font=("TkDefaultFont", 20, "bold"),
-                                   fg=self.fg, bg=self.bg, cursor="hand2", padx=4)
-        self.logo_label.pack(side="right")
-        self.logo_label.bind("<Button-1>", self.trigger_logo_easter_egg)
-        ttk.Button(top, text="⚙", width=3, command=self.settings_dialog).pack(side="right", padx=8)
+        ttk.Label(top, text=quote_text, font=("TkDefaultFont", 9), wraplength=390,
+                  justify="right", anchor="e").pack(side="right", anchor="ne", padx=(18, 0))
 
         nav = ttk.Frame(self); nav.pack(pady=4)
         ttk.Button(nav, text=self.lang["timer"], command=self.show_timer).pack(side="left", padx=4)
@@ -206,7 +206,7 @@ class BellCat(tk.Tk):
                                   font=("TkDefaultFont", 24, "bold"), fg="#C7A760")
         self.logo_message = tk.Label(self, text=message, font=("TkDefaultFont", 10, "bold"),
                                      bg=self.card, fg=self.fg, padx=10, pady=5, relief="flat")
-        self.logo_message.place(relx=.77, y=66, anchor="n")
+        self.logo_message.place(relx=.18, y=66, anchor="n")
 
         self.update_idletasks()
         center_x = self.logo_label.winfo_rootx() - self.winfo_rootx() + self.logo_label.winfo_width() / 2
@@ -259,6 +259,7 @@ class BellCat(tk.Tk):
         self.canvas = tk.Canvas(ring_row, width=410, height=410, bg=self.bg, highlightthickness=0)
         self.canvas.pack(side="left")
         self.color_panel = ttk.Frame(ring_row, width=165, height=260)
+        self.color_panel.pack(side="left", padx=(14, 0), fill="y")
         self.color_panel.pack_propagate(False)
         self.canvas.bind("<Button-1>", self.ring_press)
         self.canvas.bind("<B1-Motion>", self.ring_drag)
@@ -280,6 +281,7 @@ class BellCat(tk.Tk):
         self.cat_hovering = False
         self.start_button.bind("<Enter>", self.show_cat_hover)
         self.start_button.bind("<Leave>", self.hide_cat_hover)
+        self.show_upcoming_panel()
         self.completed_label = ttk.Label(self.content, text=self.lang["completed"].format(n=self.data["completed"]))
         self.completed_label.pack(pady=6)
         audio = ttk.Frame(self.content); audio.pack(fill="x", anchor="w", pady=6)
@@ -429,11 +431,11 @@ class BellCat(tk.Tk):
 
     def show_stage_color_panel(self):
         if not hasattr(self, "color_panel") or not self.color_panel.winfo_exists(): return
-        if not self.color_panel.winfo_manager():
-            self.color_panel.pack(side="left", padx=(14, 0), fill="y")
         for child in self.color_panel.winfo_children(): child.destroy()
         label = COLOR_LABELS.get(self.data["language"], "Stage color")
-        ttk.Label(self.color_panel, text=label, font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(58, 3))
+        title = ttk.Frame(self.color_panel); title.pack(fill="x", pady=(42, 3))
+        ttk.Label(title, text=label, font=("TkDefaultFont", 12, "bold")).pack(side="left")
+        ttk.Button(title, text="×", width=2, command=self.show_upcoming_panel).pack(side="right")
         ttk.Label(self.color_panel, text=self.stage["name"]).pack(anchor="w", pady=(0, 12))
         palette = ttk.Frame(self.color_panel); palette.pack(anchor="w")
         for index, color in enumerate(["#4B4D51", "#74767A", "#A7A9AD", "#D1CEC6", "#6B7280", "#8B6F47", "#597A6A", "#7A667E"]):
@@ -441,6 +443,31 @@ class BellCat(tk.Tk):
                                command=lambda value=color: self.set_stage_color(value))
             button.grid(row=index // 4, column=index % 4, padx=3, pady=3)
         ttk.Button(self.color_panel, text="…", width=5, command=self.choose_stage_color).pack(anchor="w", pady=(10, 0))
+
+    def show_upcoming_panel(self):
+        if not hasattr(self, "color_panel") or not self.color_panel.winfo_exists(): return
+        for child in self.color_panel.winfo_children(): child.destroy()
+        title = ttk.Frame(self.color_panel); title.pack(fill="x", pady=(42, 8))
+        ttk.Label(title, text=f"◷ {self.lang['reminders']}", font=("TkDefaultFont", 12, "bold")).pack(side="left")
+        ttk.Button(title, text="→", width=2, command=self.show_reminders).pack(side="right")
+        upcoming = []
+        for reminder in self.data.get("reminders", []):
+            try:
+                event = datetime.fromisoformat(reminder["event"])
+                if event >= datetime.now(): upcoming.append((event, reminder))
+            except Exception:
+                continue
+        upcoming.sort(key=lambda value: value[0])
+        if not upcoming:
+            ttk.Label(self.color_panel, text=self.lang["no_reminders"], wraplength=145,
+                      foreground="#888888").pack(anchor="w", pady=10)
+            ttk.Button(self.color_panel, text=self.lang["add" if "add" in self.lang else "new"],
+                       command=self.show_reminders).pack(anchor="w")
+            return
+        for event, reminder in upcoming[:3]:
+            icon = "⏰" if reminder.get("style") == "alarm" else "🔔"
+            ttk.Button(self.color_panel, text=f"{icon} {reminder['title']}\n{event:%m-%d %H:%M}",
+                       command=self.show_reminders).pack(fill="x", pady=2)
 
     def set_stage_color(self, color):
         self.stage["color"] = color.upper()
